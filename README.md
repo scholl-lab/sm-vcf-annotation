@@ -37,6 +37,8 @@ Before running the script, ensure the following:
 
 - The snpEff and SnpSift tools, along with their respective databases, are correctly installed and accessible in your runtime environment.
 - The necessary databases for snpEff and SnpSift are available and correctly configured in your environment.
+- Bcftools is correctly installed and accessible in your conda environment.
+- The conda environment for annotation is correctly set up and activated.
 
 ## Running the Script
 

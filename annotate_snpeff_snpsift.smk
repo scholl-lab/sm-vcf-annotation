@@ -11,8 +11,10 @@ import functools
 # Intermediate files generated during the workflow can be deleted to save space.
 # ----------------------------------------------------------------------------------- #
 
+# ----------------------------------------------------------------------------------- #
 # Read the configuration file
 configfile: "config.yaml"
+# ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
 # Define temporary directory using an environment variable (usually set by the cluster scheduler)
@@ -29,6 +31,7 @@ SNPSIFT_DB_LOCATION = config["snpsift_db_location"]
 ANNOTATION_SUBFOLDER = config["annotation_subfolder"]
 LOG_SUBFOLDER = config["log_subfolder"]
 CONDA_ENVIRONMENT_ANNOTATION = config["conda_environment_annotation"]
+SNPSIFT_DBNSFP_FIELDS = config["snpsift_dbnsfp_fields"]
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -105,7 +108,7 @@ rule snpsift_annotation_dbnsfp:
     shell:
         '''
         echo "Starting snpsift_annotation_dbnsfp at: $(date)" >> {log}
-        SnpSift -Xms4000m -Xmx8g dbnsfp -db {SNPSIFT_DB_LOCATION} {input.ann_vcf} | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
+        SnpSift -Xms4000m -Xmx8g dbnsfp -f {SNPSIFT_DBNSFP_FIELDS} -db {SNPSIFT_DB_LOCATION} {input.ann_vcf} | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
         bcftools index --threads {threads} -t {output.ann_dbnsfp_vcf} 2>> {log}
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         '''

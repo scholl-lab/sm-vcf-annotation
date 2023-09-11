@@ -27,6 +27,7 @@ snpsift_db_location: "path/to/snpsift/database/location"
 annotation_subfolder: "annotation"  # Subfolder name for the annotation outputs
 log_subfolder: "logs"  # Subfolder name for the log files
 conda_environment_annotation: "annotation"  # Name of the conda environment for annotation
+snpsift_dbnsfp_fields: "fields for SnpSift annotation"
 ```
 
 Ensure that the paths and parameters in "config.yaml" are correctly set up before running the script.

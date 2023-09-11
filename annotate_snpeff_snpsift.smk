@@ -2,6 +2,15 @@ import os
 import glob
 import functools
 
+# ----------------------------------------------------------------------------------- #
+# Script Description:
+# This script orchestrates a workflow for annotating VCF files using Snakemake. 
+# The workflow has two main annotation steps:
+#   1. Annotation through snpEff.
+#   2. Detailed annotation using SnpSift with the dbNSFP database.
+# Intermediate files generated during the workflow can be deleted to save space.
+# ----------------------------------------------------------------------------------- #
+
 # Read the configuration file
 configfile: "config.yaml"
 
@@ -11,7 +20,7 @@ SCRATCH_DIR = os.environ.get('TMPDIR')
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
-# Extract user-defined input and output directories and other parameters from the configuration file
+# Extract user-defined parameters from the configuration file
 OUTPUT_FOLDER = config["output_folder"]
 VCF_INPUT_FOLDER = config["vcf_input_folder"]
 SNPEFF_ANNOTATION_DB = config["snpeff_annotation_db"]
@@ -30,24 +39,31 @@ log_dir = prefix_results(LOG_SUBFOLDER)
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
-# Helper function to find all VCF files in the specified input folder
+# Helper Functions:
+# - get_vcf_files: Retrieves all VCF files from the specified input folder.
+# - get_mem_from_threads: Calculates the amount of memory to allocate based on the number of threads.
 def get_vcf_files():
+    """Retrieve all VCF files in the specified input folder."""
     return glob.glob(os.path.join(VCF_INPUT_FOLDER, "*.vcf.gz"))
 
-# Function to assign memory based on the number of threads
 def get_mem_from_threads(wildcards, threads):
+    """Calculate the amount of memory to allocate based on the number of threads."""
     return 2048 * threads
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
-# Define the pipeline rules
+# Snakemake Rules:
+# The rules define the workflow operations, from annotating VCF files using snpEff and SnpSift 
+# to cleaning up intermediate files generated during the workflow.
 
-# Define the rule to collect all the annotation targets
+# Rule "all": Specifies the final outputs of the workflow, i.e., the annotated VCF files.
 rule all:
     input:
-        expand("{output_folder}/" + ANNOTATION_SUBFOLDER + "/{sample}.ann.dbnsfp.vcf.gz", output_folder=OUTPUT_FOLDER, sample=[os.path.basename(x).replace('.vcf.gz', '') for x in get_vcf_files()])
+        expand("{output_folder}/" + ANNOTATION_SUBFOLDER + "/{sample}.ann.dbnsfp.vcf.gz", 
+               output_folder=OUTPUT_FOLDER, 
+               sample=[os.path.basename(x).replace('.vcf.gz', '') for x in get_vcf_files()])
 
-# Define the rule for snpEff annotation
+# Rule "snpeff_annotation": Annotates VCF files using snpEff.
 rule snpeff_annotation:
     input:
         vcf_file = lambda wildcards: os.path.join(VCF_INPUT_FOLDER, f"{wildcards.sample}.vcf.gz")
@@ -61,7 +77,7 @@ rule snpeff_annotation:
     resources:
         mem_mb = get_mem_from_threads,      # Memory in MB based on the number of threads
         time = '72:00:00',                  # Time limit for the job
-        tmpdir = SCRATCH_DIR,               # Temporary directory
+        tmpdir = SCRATCH_DIR,               # Temporary directory          
     shell:
         '''
         echo "Starting snpeff_annotation at: $(date)" >> {log}
@@ -71,7 +87,7 @@ rule snpeff_annotation:
         echo "Finished snpeff_annotation at: $(date)" >> {log}
         '''
 
-# Define the rule for SnpSift annotation using dbNSFP
+# Rule "snpsift_annotation_dbnsfp": Further annotates the files using SnpSift with the dbNSFP database.
 rule snpsift_annotation_dbnsfp:
     input:
         ann_vcf = os.path.join(annotation_dir, '{sample}.ann.vcf.gz')
@@ -85,7 +101,7 @@ rule snpsift_annotation_dbnsfp:
     resources:
         mem_mb = get_mem_from_threads,      # Memory in MB based on the number of threads
         time = '72:00:00',                  # Time limit for the job
-        tmpdir = SCRATCH_DIR,               # Temporary directory
+        tmpdir = SCRATCH_DIR,               # Temporary directory        
     shell:
         '''
         echo "Starting snpsift_annotation_dbnsfp at: $(date)" >> {log}
@@ -94,10 +110,10 @@ rule snpsift_annotation_dbnsfp:
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         '''
 
-# Define a rule to remove intermediate files generated after snpEff annotation
+# Rule "clean_intermediate_files": Deletes the intermediate files generated during the annotation to free up space.
 rule clean_intermediate_files:
     input:
-        os.path.join(annotation_dir, '{sample}.ann.vcf.gz'),
+        os.path.join(annotation_dir, '{sample}.ann.vcf.gz')
     shell:
         '''
         rm {input} {input}.tbi

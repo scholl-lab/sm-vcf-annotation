@@ -1,14 +1,14 @@
 # VCF Annotation Pipeline
 
-This repository contains a Snakemake workflow script for annotating VCF files using snpEff and SnpSift tools. Below are the details of the script, configuration file, and the resources required to run the pipeline.
+This repository contains a Snakemake workflow script for annotating VCF files using the snpEff and SnpSift tools. Below, you will find the details of the script, the configuration file, and the resources required to run the pipeline.
 
 ## Script Description
 
 The Snakemake script reads the configuration parameters from "config.yaml" and orchestrates a pipeline with the following rules to process VCF files:
 
-1. **snpeff_annotation**: This rule annotates VCF files using snpEff with a specified database and additional flags. The output is compressed using bgzip, and an HTML file containing statistics for each annotation is generated.
-   
-2. **snpsift_annotation**: This rule takes the output of the `snpeff_annotation` rule and further annotates it using SnpSift with a specified database file. The output is then compressed using bgzip.
+1. **snpeff_annotation**: This rule annotates VCF files using snpEff with a specified database and additional flags. The output, including an HTML file containing statistics for each annotation, is compressed using bgzip.
+
+2. **snpsift_annotation_dbnsfp**: This rule takes the output of the `snpeff_annotation` rule and further annotates it using SnpSift with the dbNSFP database specified in the configuration file. The output is then compressed using bgzip.
 
 3. **clean_intermediate_files**: This rule deletes the intermediate files created after the snpEff annotation to conserve storage space.
 
@@ -35,24 +35,38 @@ Ensure that the paths and parameters in "config.yaml" are correctly set up befor
 
 Before running the script, ensure the following:
 
-- The snpEff and SnpSift tools, along with their respective databases, are correctly installed and accessible in your runtime environment.
-- The necessary databases for snpEff and SnpSift are available and correctly configured in your environment.
-- Bcftools is correctly installed and accessible in your conda environment.
-- The conda environment for annotation is correctly set up and activated.
+- snpEff and SnpSift tools are correctly installed and configured, including their respective databases.
+- Bcftools is installed and accessible in your conda environment.
+- The conda environment specified for annotation is set up with all necessary packages installed.
 
 ## Running the Script
 
-Once everything is set up, you can run your workflow using the schedular script with the following command in the terminal (in the directory where your Snakemake file is):
+To execute the workflow, navigate to the directory containing the Snakemake file and use the following command in your terminal:
 
 ```sh
-sbatch run_annotate_snpeff_snpsift.sh 50
+snakemake --cores 50
 ```
-```
+
+Replace `50` with the number of cores you wish to allocate to the workflow.
 
 ## Logging
 
-The script logs the start and end times of each rule to facilitate performance profiling and diagnosis of potential issues. Log files are stored in the directory specified under `log_subfolder` in the configuration file.
+The script logs the start and end times of each rule to facilitate performance profiling and troubleshooting. Log files are stored in the directory specified under `log_subfolder` in the configuration file.
 
 ## Contribution
 
-Feel free to fork the repository and submit pull requests for any enhancements or bug fixes.
+Feel free to fork the repository and submit pull requests for any enhancements or bug fixes. Contributions to improve the script or documentation are welcome.
+
+## TODOs/Open Issues for Improvement
+
+1. **Resource Allocation**: Move resource and thread allocation settings, including runtime, to the configuration file or dynamically compute them based on the available system resources.
+   
+2. **Java Memory Limits**: Remove hardcoded Java memory limits and allow them to be specified in the configuration file or computed dynamically based on the available memory.
+
+3. **Flexible Input**: Allow more flexible input by accepting non-gzipped VCF files and making the file extension a parameter in the configuration file.
+
+4. **Improved Error Handling**: Implement better error handling to gracefully handle any issues that may arise during execution and provide informative error messages to facilitate debugging.
+
+5. **Documentation**: Enhance the documentation to provide more detailed instructions for setting up and using the various databases required by snpEff and SnpSift, possibly including a guide for setting up the necessary conda environments.
+
+6. **Testing**: Develop a suite of tests to verify that the script is functioning correctly, including tests for different input file formats and annotations.

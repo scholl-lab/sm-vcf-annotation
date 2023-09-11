@@ -85,8 +85,8 @@ rule snpeff_annotation:
         '''
         echo "Starting snpeff_annotation at: $(date)" >> {log}
         mkdir -p {annotation_dir}
-        snpEff -Xms4000m -Xmx8g {SNPEFF_ANNOTATION_DB} {SNPEFF_ADDITIONAL_FLAGS} -stats {output.ann_vcf}.html {input.vcf_file} | bgzip -c > {output.ann_vcf} &>> {log}
-        bcftools index --threads {threads} -t {output.ann_vcf} &>> {log}
+        snpEff -Xms4000m -Xmx8g {SNPEFF_ANNOTATION_DB} {SNPEFF_ADDITIONAL_FLAGS} -stats {output.ann_vcf}.html {input.vcf_file} | bgzip -c > {output.ann_vcf} 2>> {log}
+        bcftools index --threads {threads} -t {output.ann_vcf} 2>> {log}
         echo "Finished snpeff_annotation at: $(date)" >> {log}
         '''
 
@@ -108,8 +108,8 @@ rule snpsift_annotation_dbnsfp:
     shell:
         '''
         echo "Starting snpsift_annotation_dbnsfp at: $(date)" >> {log}
-        SnpSift -Xms4000m -Xmx8g dbnsfp -f {SNPSIFT_DBNSFP_FIELDS} -db {SNPSIFT_DB_LOCATION} {input.ann_vcf} | bgzip -c > {output.ann_dbnsfp_vcf} &>> {log}
-        bcftools index --threads {threads} -t {output.ann_dbnsfp_vcf} &>> {log}
+        SnpSift -Xms4000m -Xmx8g dbnsfp -f {SNPSIFT_DBNSFP_FIELDS} -db {SNPSIFT_DB_LOCATION} {input.ann_vcf} | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
+        bcftools index --threads {threads} -t {output.ann_dbnsfp_vcf} 2>> {log}
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         '''
 

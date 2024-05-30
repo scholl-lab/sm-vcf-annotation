@@ -25,5 +25,5 @@ export SBATCH_DEFAULTS=" --output=slurm_logs/%x-%j.log"
 JOBS=${1:-50}
 
 date
-srun snakemake -s annotate_snpeff_snpsift.smk --use-conda --profile=cubi-v1 -j$JOBS
+srun snakemake -s snakemake/annotate_snpeff_snpsift.smk --use-conda --profile=cubi-v1 -j$JOBS
 date

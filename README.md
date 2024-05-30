@@ -45,7 +45,7 @@ Before running the script, ensure the following:
 To execute the workflow, navigate to the directory containing the Snakemake file and use the following command in your terminal:
 
 ```sh
-snakemake --cores 50
+snakemake -s annotate_snpeff_snpsift.smk --use-conda --cores 50
 ```
 
 Replace `50` with the number of cores you wish to allocate to the workflow.
@@ -61,7 +61,7 @@ Feel free to fork the repository and submit pull requests for any enhancements o
 ## TODOs/Open Issues for Improvement
 
 1. **Resource Allocation**: Move resource and thread allocation settings, including runtime, to the configuration file or dynamically compute them based on the available system resources.
-   
+
 2. **Java Memory Limits**: Remove hardcoded Java memory limits and allow them to be specified in the configuration file or computed dynamically based on the available memory.
 
 3. **Flexible Input**: Allow more flexible input by accepting non-gzipped VCF files and making the file extension a parameter in the configuration file.

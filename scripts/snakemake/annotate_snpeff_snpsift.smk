@@ -62,8 +62,8 @@ def get_mem_from_threads(wildcards, threads):
 # Rule "all": Specifies the final outputs of the workflow, i.e., the annotated VCF files.
 rule all:
     input:
-        expand("{output_folder}/" + ANNOTATION_SUBFOLDER + "/{sample}.ann.dbnsfp.vcf.gz", 
-               output_folder=OUTPUT_FOLDER, 
+        expand("{annotation_dir}" + "/{sample}.ann.dbnsfp.vcf.gz", 
+               annotation_dir=annotation_dir, 
                sample=[os.path.basename(x).replace('.vcf.gz', '') for x in get_vcf_files()])
 
 # Rule "snpeff_annotation": Annotates VCF files using snpEff.

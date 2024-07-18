@@ -5,9 +5,10 @@ import functools
 # ----------------------------------------------------------------------------------- #
 # Script Description:
 # This script orchestrates a workflow for annotating VCF files using Snakemake. 
-# The workflow has two main annotation steps:
+# The workflow has three main annotation steps:
 #   1. Annotation through snpEff.
-#   2. Detailed annotation using SnpSift with the dbNSFP database.
+#   2. Adding variant type information using SnpSift varType.
+#   3. Detailed annotation using SnpSift with the dbNSFP database.
 # Intermediate files generated during the workflow can be deleted to save space.
 # ----------------------------------------------------------------------------------- #
 
@@ -52,6 +53,14 @@ def get_vcf_files():
 def get_mem_from_threads(wildcards, threads):
     """Calculate the amount of memory to allocate based on the number of threads."""
     return 2048 * threads
+
+def add_suffix_to_vcf(vcf_file, suffix):
+    """Add a suffix to the VCF filename before the .vcf.gz extension."""
+    base, ext = os.path.splitext(vcf_file)
+    if ext == '.gz':
+        base, ext2 = os.path.splitext(base)
+        ext = ext2 + ext
+    return base + suffix + ext
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -62,7 +71,7 @@ def get_mem_from_threads(wildcards, threads):
 # Rule "all": Specifies the final outputs of the workflow, i.e., the annotated VCF files.
 rule all:
     input:
-        expand("{annotation_dir}" + "/{sample}.ann.dbnsfp.vcf.gz", 
+        expand("{annotation_dir}/{sample}.annotated.vcf.gz", 
                annotation_dir=annotation_dir, 
                sample=[os.path.basename(x).replace('.vcf.gz', '') for x in get_vcf_files()])
 
@@ -85,17 +94,40 @@ rule snpeff_annotation:
         '''
         echo "Starting snpeff_annotation at: $(date)" >> {log}
         mkdir -p {annotation_dir}
-        snpEff -Xms4000m -Xmx8g {SNPEFF_ANNOTATION_DB} {SNPEFF_ADDITIONAL_FLAGS} -stats {output.ann_vcf}.html {input.vcf_file} | bgzip -c > {output.ann_vcf} 2>> {log}
-        bcftools index --threads {threads} -t {output.ann_vcf} 2>> {log}
+        snpEff -Xms4000m -Xmx8g {SNPEFF_ANNOTATION_DB} {SNPEFF_ADDITIONAL_FLAGS} -stats {output}.html {input.vcf_file} | bgzip -c > {output} 2>> {log}
+        bcftools index --threads {threads} -t {output} 2>> {log}
         echo "Finished snpeff_annotation at: $(date)" >> {log}
+        '''
+
+# Rule "snpsift_variant_type": Adds variant type information using SnpSift varType.
+rule snpsift_variant_type:
+    input:
+        ann_vcf = os.path.join(annotation_dir, '{sample}.ann.vcf.gz')
+    output:
+        ann_vartype_vcf = os.path.join(annotation_dir, '{sample}.ann.vartype.vcf.gz')
+    log:
+        os.path.join(log_dir, 'snpsift_variant_type.{sample}.log')
+    conda:
+        CONDA_ENVIRONMENT_ANNOTATION
+    threads: 4
+    resources:
+        mem_mb = get_mem_from_threads,      # Memory in MB based on the number of threads
+        time = '72:00:00',                  # Time limit for the job
+        tmpdir = SCRATCH_DIR,               # Temporary directory        
+    shell:
+        '''
+        echo "Starting snpsift_variant_type at: $(date)" >> {log}
+        SnpSift -Xms4000m -Xmx8g varType {input.ann_vcf} | bgzip -c > {output} 2>> {log}
+        bcftools index --threads {threads} -t {output} 2>> {log}
+        echo "Finished snpsift_variant_type at: $(date)" >> {log}
         '''
 
 # Rule "snpsift_annotation_dbnsfp": Further annotates the files using SnpSift with the dbNSFP database.
 rule snpsift_annotation_dbnsfp:
     input:
-        ann_vcf = os.path.join(annotation_dir, '{sample}.ann.vcf.gz')
+        ann_vartype_vcf = os.path.join(annotation_dir, '{sample}.ann.vartype.vcf.gz')
     output:
-        ann_dbnsfp_vcf = os.path.join(annotation_dir, '{sample}.ann.dbnsfp.vcf.gz')
+        ann_dbnsfp_vcf = os.path.join(annotation_dir, '{sample}.annotated.vcf.gz')
     log:
         os.path.join(log_dir, 'snpsift_annotation_dbnsfp.{sample}.log')
     conda:
@@ -108,15 +140,15 @@ rule snpsift_annotation_dbnsfp:
     shell:
         '''
         echo "Starting snpsift_annotation_dbnsfp at: $(date)" >> {log}
-        SnpSift -Xms4000m -Xmx8g dbnsfp -f {SNPSIFT_DBNSFP_FIELDS} -db {SNPSIFT_DB_LOCATION} {input.ann_vcf} | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
-        bcftools index --threads {threads} -t {output.ann_dbnsfp_vcf} 2>> {log}
+        SnpSift -Xms4000m -Xmx8g dbnsfp -f {SNPSIFT_DBNSFP_FIELDS} -db {SNPSIFT_DB_LOCATION} {input.ann_vartype_vcf} | bgzip -c > {output} 2>> {log}
+        bcftools index --threads {threads} -t {output} 2>> {log}
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         '''
 
 # Rule "clean_intermediate_files": Deletes the intermediate files generated during the annotation to free up space.
 rule clean_intermediate_files:
     input:
-        os.path.join(annotation_dir, '{sample}.ann.vcf.gz')
+        "{annotation_dir}/{sample}.ann.vcf.gz"
     shell:
         '''
         rm {input} {input}.tbi

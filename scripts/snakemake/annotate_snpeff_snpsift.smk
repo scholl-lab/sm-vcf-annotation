@@ -1,6 +1,7 @@
 import os
 import glob
 import functools
+import json
 
 # ----------------------------------------------------------------------------------- #
 # Script Description:
@@ -9,6 +10,7 @@ import functools
 #   1. Annotation through snpEff.
 #   2. Adding variant type information using SnpSift varType.
 #   3. Detailed annotation using SnpSift with the dbNSFP database.
+#   4. Optional: Adding extra annotations from arbitrary VCF files.
 # Intermediate files generated during the workflow can be deleted to save space.
 # ----------------------------------------------------------------------------------- #
 
@@ -33,6 +35,7 @@ ANNOTATION_SUBFOLDER = config["annotation_subfolder"]
 LOG_SUBFOLDER = config["log_subfolder"]
 CONDA_ENVIRONMENT_ANNOTATION = config["conda_environment_annotation"]
 SNPSIFT_DBNSFP_FIELDS = config["snpsift_dbnsfp_fields"]
+EXTRA_VCF_ANNOTATIONS = config.get("extra_vcf_annotations", [])
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -54,13 +57,16 @@ def get_mem_from_threads(wildcards, threads):
     """Calculate the amount of memory to allocate based on the number of threads."""
     return 2048 * threads
 
-def add_suffix_to_vcf(vcf_file, suffix):
-    """Add a suffix to the VCF filename before the .vcf.gz extension."""
-    base, ext = os.path.splitext(vcf_file)
-    if ext == '.gz':
-        base, ext2 = os.path.splitext(base)
-        ext = ext2 + ext
-    return base + suffix + ext
+def format_extra_annotations(annotations):
+    """Format extra annotations into a space-separated string."""
+    formatted_annotations = []
+    for annotation in annotations:
+        formatted_annotations.append(
+            f"{annotation['vcf_file']},{annotation['info_field']},{annotation['annotation_prefix']}"
+        )
+    return ' '.join(formatted_annotations)
+
+formatted_extra_annotations = format_extra_annotations(EXTRA_VCF_ANNOTATIONS)
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -127,7 +133,7 @@ rule snpsift_annotation_dbnsfp:
     input:
         ann_vartype_vcf = os.path.join(annotation_dir, '{sample}.ann.vartype.vcf.gz')
     output:
-        ann_dbnsfp_vcf = os.path.join(annotation_dir, '{sample}.annotated.vcf.gz')
+        ann_dbnsfp_vcf = os.path.join(annotation_dir, '{sample}.ann.dbnsfp.vcf.gz')
     log:
         os.path.join(log_dir, 'snpsift_annotation_dbnsfp.{sample}.log')
     conda:
@@ -143,6 +149,38 @@ rule snpsift_annotation_dbnsfp:
         SnpSift -Xms4000m -Xmx8g dbnsfp -f {SNPSIFT_DBNSFP_FIELDS} -db {SNPSIFT_DB_LOCATION} {input.ann_vartype_vcf} | bgzip -c > {output} 2>> {log}
         bcftools index --threads {threads} -t {output} 2>> {log}
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
+        '''
+
+# Rule "extra_annotations": Adds arbitrary VCF annotations using SnpSift annotate.
+rule extra_annotations:
+    input:
+        vcf = os.path.join(annotation_dir, '{sample}.ann.dbnsfp.vcf.gz')
+    output:
+        vcf = os.path.join(annotation_dir, '{sample}.annotated.vcf.gz')
+    log:
+        os.path.join(log_dir, 'extra_annotations.{sample}.log')
+    conda:
+        CONDA_ENVIRONMENT_ANNOTATION
+    threads: 4
+    resources:
+        mem_mb = get_mem_from_threads,      # Memory in MB based on the number of threads
+        time = '72:00:00',                  # Time limit for the job
+        tmpdir = SCRATCH_DIR,               # Temporary directory
+    params:
+        annotations = formatted_extra_annotations
+    shell:
+        '''
+        echo "Starting extra_annotations at: $(date)" >> {log}
+        final_vcf={input.vcf}
+        for vcf_annotation in {params.annotations}; do
+            IFS=',' read -r vcf_file info_field annotation_prefix <<< "$vcf_annotation"
+            output_vcf=$(echo $final_vcf | sed 's/.vcf.gz/.tmp.vcf.gz/')
+            SnpSift -Xms4000m -Xmx8g annotate -info $info_field -name $annotation_prefix $vcf_file $final_vcf | bgzip -c > $output_vcf
+            final_vcf=$output_vcf
+        done
+        mv $final_vcf {output.vcf}
+        bcftools index --threads {threads} -t {output.vcf} 2>> {log}
+        echo "Finished extra_annotations at: $(date)" >> {log}
         '''
 
 # Rule "clean_intermediate_files": Deletes the intermediate files generated during the annotation to free up space.

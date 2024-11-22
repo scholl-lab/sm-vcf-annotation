@@ -55,7 +55,7 @@ def get_vcf_files():
 
 def get_mem_from_threads(wildcards, threads):
     """Calculate the amount of memory to allocate based on the number of threads."""
-    return 2048 * threads
+    return 4096 * threads
 
 def format_extra_annotations(annotations):
     """Format extra annotations into a space-separated string."""

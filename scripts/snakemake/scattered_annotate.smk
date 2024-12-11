@@ -41,9 +41,6 @@ EXTRA_VCF_ANNOTATIONS = config.get("extra_vcf_annotations", [])
 
 REFERENCE_GENOME = config["reference_genome"]
 SCATTER_COUNT = int(config.get("scatter_count", 100))
-INTERVAL_PADDING = int(config.get("interval_padding", 0))
-SUBDIVISION_MODE = config.get("subdivision_mode", None)
-ADDITIONAL_INTERVALS = config.get("additional_intervals", [])
 GATK_ENV = config.get("gatk_env", CONDA_ENVIRONMENT_ANNOTATION)  # Environment with GATK installed
 # ----------------------------------------------------------------------------------- #
 
@@ -132,12 +129,7 @@ rule split_intervals:
         interval_files=expand(os.path.join(intervals_dir, "{interval_id}-scattered.interval_list"),
                               interval_id=interval_ids)
     params:
-        scatter_count=SCATTER_COUNT,
-        options=" ".join(filter(None, [
-            " ".join("-L {}".format(interval) for interval in ADDITIONAL_INTERVALS),
-            "-ip {}".format(INTERVAL_PADDING) if INTERVAL_PADDING > 0 else "",
-            "--subdivision-mode {}".format(SUBDIVISION_MODE) if SUBDIVISION_MODE else ""
-        ]))
+        scatter_count=SCATTER_COUNT
     log:
         os.path.join(log_dir, "split_intervals.log")
     conda:
@@ -149,7 +141,6 @@ rule split_intervals:
         gatk SplitIntervals \
             -R {input.reference} \
             -L {input.intervals_list} \
-            {params.options} \
             --scatter-count {params.scatter_count} \
             -O {intervals_dir} &>> {log}
         echo "Finished SplitIntervals at: $(date)" >> {log}

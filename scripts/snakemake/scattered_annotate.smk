@@ -188,7 +188,6 @@ rule scatter_vcf:
           -V {input.vcf_file} \
           -L {input.interval_file} \
           -O {output} 2>> {log}
-        bcftools index --threads {threads} -t {output} 2>> {log}
         echo "Finished scatter_vcf at: $(date)" >> {log}
         '''
 # ----------------------------------------------------------------------------------- #

@@ -21,8 +21,8 @@ trap "rm -rf $TMPDIR" EXIT
 mkdir -p slurm_logs
 export SBATCH_DEFAULTS=" --output=slurm_logs/%x-%j.log"
 
-# Get the number of jobs from the command line argument, default to 50 if not provided
-JOBS=${1:-50}
+# Get the number of jobs from the command line argument, default to 400 if not provided
+JOBS=${1:-400}
 
 date
 srun snakemake -s snakemake/scattered_annotate.smk --use-conda --profile=cubi-v1 -j$JOBS

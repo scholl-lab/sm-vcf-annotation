@@ -7,7 +7,7 @@ import json
 # Script Description:
 # This script integrates a complete annotation pipeline for large multisample VCFs:
 #   1. Generate equally sized intervals using GATK ScatterIntervalsByNs and SplitIntervals.
-#   2. Scatter the input VCF into these intervals.
+#   2. Scatter the input VCF into these intervals, excluding non-canonical contigs.
 #   3. Annotate each interval-chunked VCF with:
 #       - snpEff for variant annotation
 #       - SnpSift varType to determine variant types
@@ -18,7 +18,6 @@ import json
 # Intermediate files can be cleaned up if desired.
 #
 # The workflow uses a "config.yaml" for parameters.
-# This version ensures that all rules define input/output with consistent wildcards.
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -27,14 +26,12 @@ configfile: "config.yaml"
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
-# ENVIRONMENT SETUP:
-# Use an environment variable for temporary directory, commonly set by cluster schedulers.
+# Define temporary directory using an environment variable (usually set by the cluster scheduler)
 SCRATCH_DIR = os.environ.get('TMPDIR', '/tmp')
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
-# CONFIGURATION:
-# Extract parameters from the configuration file.
+# Extract user-defined parameters from the configuration file
 OUTPUT_FOLDER = config["output_folder"]
 VCF_INPUT_FOLDER = config["vcf_input_folder"]
 SNPEFF_ANNOTATION_DB = config["snpeff_annotation_db"]
@@ -47,13 +44,17 @@ SNPSIFT_DBNSFP_FIELDS = config["snpsift_dbnsfp_fields"]
 EXTRA_VCF_ANNOTATIONS = config.get("extra_vcf_annotations", [])
 
 REFERENCE_GENOME = config["reference_genome"]
+REFERENCE_DICT = config["reference_dict"]
 SCATTER_COUNT = int(config.get("scatter_count", 100))
-GATK_ENV = config.get("gatk_env", CONDA_ENVIRONMENT_ANNOTATION)  # Env with GATK installed
+GATK_ENV = config.get("gatk_env", CONDA_ENVIRONMENT_ANNOTATION)  # Environment with GATK installed
+
+# Added canonical contigs parameter
+CANONICAL_CONTIGS = config["canonical_contigs"]
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
 # DIRECTORY SETUP:
-# Define output directories based on user config and create them if needed.
+# Define directories
 prefix_results = functools.partial(os.path.join, OUTPUT_FOLDER)
 annotation_dir = prefix_results(ANNOTATION_SUBFOLDER)
 log_dir = prefix_results(LOG_SUBFOLDER)
@@ -64,17 +65,17 @@ os.makedirs(log_dir, exist_ok=True)
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
-# HELPER FUNCTIONS:
+# Helper Functions
 def get_vcf_files():
     """Retrieve all VCF files in the specified input folder."""
     return glob.glob(os.path.join(VCF_INPUT_FOLDER, "*.vcf.gz"))
 
 def get_mem_from_threads(wildcards, threads):
-    """Calculate memory allocation based on the number of threads."""
+    """Calculate the amount of memory to allocate based on the number of threads."""
     return 4096 * threads
 
 def format_extra_annotations(annotations):
-    """Format extra VCF-based annotations into a single string for the annotation step."""
+    """Format extra annotations into a space-separated string."""
     formatted_annotations = []
     for annotation in annotations:
         formatted_annotations.append(
@@ -83,13 +84,33 @@ def format_extra_annotations(annotations):
     return ' '.join(formatted_annotations)
 
 formatted_extra_annotations = format_extra_annotations(EXTRA_VCF_ANNOTATIONS)
+
+# Added function to parse dict and extract non-canonical contigs
+def get_noncanonical_contigs(dict_file, canonical):
+    """Parse the reference dictionary to find non-canonical contigs."""
+    noncanonical = []
+    with open(dict_file, 'r') as f:
+        for line in f:
+            if line.startswith('@SQ'):
+                fields = line.strip().split('\t')
+                for field in fields:
+                    if field.startswith('SN:'):
+                        contig = field.replace('SN:', '')
+                        if contig not in canonical:
+                            noncanonical.append(contig)
+    return noncanonical
+
+noncanonical_contigs = get_noncanonical_contigs(REFERENCE_DICT, CANONICAL_CONTIGS)
+exclude_intervals = ' '.join(["-XL " + c for c in noncanonical_contigs])
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
 # SAMPLE AND INTERVAL SETUP:
-# Determine input samples and generate interval IDs.
+# Determine the input samples and interval IDs
 samples = [os.path.basename(x).replace('.vcf.gz', '') for x in get_vcf_files()]
 interval_ids = [str(i).zfill(4) for i in range(0, SCATTER_COUNT)]
+
+# Set intervals list path (always genome-style scattering)
 INTERVALS_LIST = os.path.join(intervals_dir, "intervals.interval_list")
 # ----------------------------------------------------------------------------------- #
 
@@ -129,6 +150,7 @@ rule scatter_intervals_by_ns:
             -O {output.intervals_list} &>> {log}
         echo "Finished ScatterIntervalsByNs at: $(date)" >> {log}
         """
+
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -143,7 +165,8 @@ rule split_intervals:
         interval_files=expand(os.path.join(intervals_dir, "{interval_id}-scattered.interval_list"),
                               interval_id=interval_ids)
     params:
-        scatter_count=SCATTER_COUNT
+        scatter_count=SCATTER_COUNT,
+        exclude_intervals=exclude_intervals
     log:
         os.path.join(log_dir, "split_intervals.log")
     conda:
@@ -155,6 +178,7 @@ rule split_intervals:
         gatk SplitIntervals \
             -R {input.reference} \
             -L {input.intervals_list} \
+            {params.exclude_intervals} \
             --scatter-count {params.scatter_count} \
             -O {intervals_dir} &>> {log}
         echo "Finished SplitIntervals at: $(date)" >> {log}

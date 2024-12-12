@@ -263,8 +263,17 @@ rule snpsift_variant_type:
     shell:
         '''
         echo "Starting snpsift_variant_type at: $(date)" >> {log}
-        SnpSift -Xms4000m -Xmx8g varType {input.ann_vcf} | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
-        bcftools index --threads {threads} -t {output.ann_vartype_vcf} 2>> {log}
+        # Check if the VCF has any variants (non-header lines).
+        variant_count=$(bcftools view -H {input.ann_vcf} | wc -l)
+        if [ "$variant_count" -eq 0 ]; then
+            echo "No variants found in {input.ann_vcf}, copying input to output." >> {log}
+            cp {input.ann_vcf} {output.ann_vartype_vcf}
+            cp {input.ann_vcf}.tbi {output.ann_vartype_vcf}.tbi
+        else
+            echo "Variants found, running SnpSift varType." >> {log}
+            SnpSift -Xms4000m -Xmx8g varType {input.ann_vcf} | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
+            bcftools index --threads {threads} -t {output.ann_vartype_vcf} 2>> {log}
+        fi
         echo "Finished snpsift_variant_type at: $(date)" >> {log}
         '''
 # ----------------------------------------------------------------------------------- #

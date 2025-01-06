@@ -1,3 +1,7 @@
+# ----------------------------------------------------------------------------------- #
+# scattered_annotate.smk
+# ----------------------------------------------------------------------------------- #
+
 import os
 import glob
 import functools
@@ -75,12 +79,18 @@ def get_mem_from_threads(wildcards, threads):
     return 4096 * threads
 
 def format_extra_annotations(annotations):
-    """Format extra annotations into a space-separated string."""
+    """
+    Format extra annotations into a space-separated string,
+    but use a pipe ('|') to separate the top-level values.
+    """
     formatted_annotations = []
     for annotation in annotations:
-        formatted_annotations.append(
-            f"{annotation['vcf_file']},{annotation['info_field']},{annotation['annotation_prefix']}"
-        )
+        line = '|'.join([
+            annotation['vcf_file'],
+            annotation['info_field'],      # can contain commas
+            annotation['annotation_prefix']
+        ])
+        formatted_annotations.append(line)
     return ' '.join(formatted_annotations)
 
 formatted_extra_annotations = format_extra_annotations(EXTRA_VCF_ANNOTATIONS)
@@ -150,7 +160,6 @@ rule scatter_intervals_by_ns:
             -O {output.intervals_list} &>> {log}
         echo "Finished ScatterIntervalsByNs at: $(date)" >> {log}
         """
-
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -328,9 +337,10 @@ rule extra_annotations:
         echo "Starting extra_annotations at: $(date)" >> {log}
         final_vcf={input.vcf}
         for vcf_annotation in {params.annotations}; do
-            IFS=',' read -r vcf_file info_field annotation_prefix <<< "$vcf_annotation"
+            IFS='|' read -r vcf_file info_field annotation_prefix <<< "$vcf_annotation"
             output_vcf=$(echo $final_vcf | sed 's/.vcf.gz/.tmp.vcf.gz/')
-            SnpSift -Xms4000m -Xmx8g annotate -info $info_field -name $annotation_prefix $vcf_file $final_vcf | bgzip -c > $output_vcf
+            SnpSift -Xms4000m -Xmx8g annotate -info $info_field -name $annotation_prefix \
+                $vcf_file $final_vcf | bgzip -c > $output_vcf
             final_vcf=$output_vcf
         done
         mv $final_vcf {output.vcf}

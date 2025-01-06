@@ -16,7 +16,7 @@ import json
 #       - snpEff for variant annotation
 #       - SnpSift varType to determine variant types
 #       - SnpSift dbnsfp for additional functional annotations from dbNSFP
-#       - Optional extra VCF-based annotations
+#       - Optional extra VCF-based annotations (handled via stepwise rules)
 #   4. Concatenate all annotated interval files into a single final annotated VCF.
 #
 # Intermediate files can be cleaned up if desired.
@@ -31,7 +31,7 @@ configfile: "config.yaml"
 
 # ----------------------------------------------------------------------------------- #
 # Define temporary directory using an environment variable (usually set by the cluster scheduler)
-SCRATCH_DIR = os.environ.get('TMPDIR', '/tmp')
+SCRATCH_DIR = os.environ.get("TMPDIR", "/tmp")
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
@@ -59,6 +59,7 @@ CANONICAL_CONTIGS = config["canonical_contigs"]
 # ----------------------------------------------------------------------------------- #
 # DIRECTORY SETUP:
 # Define directories
+import os
 prefix_results = functools.partial(os.path.join, OUTPUT_FOLDER)
 annotation_dir = prefix_results(ANNOTATION_SUBFOLDER)
 log_dir = prefix_results(LOG_SUBFOLDER)
@@ -78,24 +79,6 @@ def get_mem_from_threads(wildcards, threads):
     """Calculate the amount of memory to allocate based on the number of threads."""
     return 4096 * threads
 
-def format_extra_annotations(annotations):
-    """
-    Format extra annotations into a space-separated string,
-    but use a pipe ('|') to separate the top-level values.
-    """
-    formatted_annotations = []
-    for annotation in annotations:
-        line = '|'.join([
-            annotation['vcf_file'],
-            annotation['info_field'],      # can contain commas
-            annotation['annotation_prefix']
-        ])
-        formatted_annotations.append(line)
-    return ' '.join(formatted_annotations)
-
-formatted_extra_annotations = format_extra_annotations(EXTRA_VCF_ANNOTATIONS)
-
-# Added function to parse dict and extract non-canonical contigs
 def get_noncanonical_contigs(dict_file, canonical):
     """Parse the reference dictionary to find non-canonical contigs."""
     noncanonical = []
@@ -117,7 +100,7 @@ exclude_intervals = ' '.join(["-XL " + c for c in noncanonical_contigs])
 # ----------------------------------------------------------------------------------- #
 # SAMPLE AND INTERVAL SETUP:
 # Determine the input samples and interval IDs
-samples = [os.path.basename(x).replace('.vcf.gz', '') for x in get_vcf_files()]
+samples = [os.path.basename(x).replace(".vcf.gz", "") for x in get_vcf_files()]
 interval_ids = [str(i).zfill(4) for i in range(0, SCATTER_COUNT)]
 
 # Set intervals list path (always genome-style scattering)
@@ -208,10 +191,10 @@ rule scatter_vcf:
         os.path.join(log_dir, "scatter_vcf.{sample}.{interval_id}.log")
     conda:
         GATK_ENV
-    threads: 4
+    threads: 2
     resources:
         mem_mb=get_mem_from_threads,
-        time='72:00:00',
+        time='24:00:00',
         tmpdir=SCRATCH_DIR
     shell:
         r'''
@@ -238,15 +221,17 @@ rule snpeff_annotation:
         os.path.join(log_dir, "snpeff_annotation.{sample}.{interval_id}.log")
     conda:
         CONDA_ENVIRONMENT_ANNOTATION
-    threads: 4
+    threads: 2
     resources:
         mem_mb=get_mem_from_threads,
-        time='72:00:00',
+        time='24:00:00',
         tmpdir=SCRATCH_DIR
     shell:
         '''
         echo "Starting snpeff_annotation at: $(date)" >> {log}
-        snpEff -Xms4000m -Xmx8g {SNPEFF_ANNOTATION_DB} {SNPEFF_ADDITIONAL_FLAGS} -stats {output.ann_vcf}.html {input.vcf_file} | bgzip -c > {output.ann_vcf} 2>> {log}
+        snpEff -Xms4000m -Xmx8g {SNPEFF_ANNOTATION_DB} {SNPEFF_ADDITIONAL_FLAGS} \
+               -stats {output.ann_vcf}.html {input.vcf_file} \
+        | bgzip -c > {output.ann_vcf} 2>> {log}
         bcftools index --threads {threads} -t {output.ann_vcf} 2>> {log}
         echo "Finished snpeff_annotation at: $(date)" >> {log}
         '''
@@ -264,10 +249,10 @@ rule snpsift_variant_type:
         os.path.join(log_dir, "snpsift_variant_type.{sample}.{interval_id}.log")
     conda:
         CONDA_ENVIRONMENT_ANNOTATION
-    threads: 4
+    threads: 2
     resources:
         mem_mb=get_mem_from_threads,
-        time='72:00:00',
+        time='24:00:00',
         tmpdir=SCRATCH_DIR
     shell:
         '''
@@ -280,7 +265,8 @@ rule snpsift_variant_type:
             cp {input.ann_vcf}.tbi {output.ann_vartype_vcf}.tbi
         else
             echo "Variants found, running SnpSift varType." >> {log}
-            SnpSift -Xms4000m -Xmx8g varType {input.ann_vcf} | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
+            SnpSift -Xms4000m -Xmx8g varType {input.ann_vcf} \
+            | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
             bcftools index --threads {threads} -t {output.ann_vartype_vcf} 2>> {log}
         fi
         echo "Finished snpsift_variant_type at: $(date)" >> {log}
@@ -299,77 +285,130 @@ rule snpsift_annotation_dbnsfp:
         os.path.join(log_dir, "snpsift_annotation_dbnsfp.{sample}.{interval_id}.log")
     conda:
         CONDA_ENVIRONMENT_ANNOTATION
-    threads: 4
+    threads: 2
     resources:
         mem_mb=get_mem_from_threads,
-        time='72:00:00',
+        time='24:00:00',
         tmpdir=SCRATCH_DIR
     shell:
         '''
         echo "Starting snpsift_annotation_dbnsfp at: $(date)" >> {log}
-        SnpSift -Xms4000m -Xmx8g dbnsfp -f {SNPSIFT_DBNSFP_FIELDS} -db {SNPSIFT_DB_LOCATION} {input.ann_vartype_vcf} | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
+        SnpSift -Xms4000m -Xmx8g dbnsfp \
+            -f {SNPSIFT_DBNSFP_FIELDS} \
+            -db {SNPSIFT_DB_LOCATION} \
+            {input.ann_vartype_vcf} \
+        | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
         bcftools index --threads {threads} -t {output.ann_dbnsfp_vcf} 2>> {log}
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         '''
 # ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
-# RULE: extra_annotations
-# Optionally adds other annotations from provided VCF files using SnpSift annotate.
-rule extra_annotations:
+# STEP-BY-STEP EXTRA ANNOTATIONS (SHELL-BASED)
+# ----------------------------------------------------------------------------------- #
+
+N_ANNOTATIONS = len(EXTRA_VCF_ANNOTATIONS)
+
+def annotation_step_vcf(sample, interval_id, step):
+    """Return the path for a given step of extra annotation."""
+    if step == 0:
+        # Step 0 => input is the VCF after dbNSFP
+        return os.path.join(annotation_dir, f"{sample}.{interval_id}.ann.dbnsfp.vcf.gz")
+    # step 1..N => intermediate files
+    return os.path.join(annotation_dir, f"{sample}.{interval_id}.ann.step{step}.vcf.gz")
+
+
+rule annotation_step:
+    """
+    Applies exactly ONE annotation from EXTRA_VCF_ANNOTATIONS by step index.
+    step ranges from 1..N_ANNOTATIONS, referencing the i-th annotation in the config.
+    """
     input:
-        vcf=os.path.join(annotation_dir, "{sample}.{interval_id}.ann.dbnsfp.vcf.gz")
+        lambda wc: annotation_step_vcf(wc.sample, wc.interval_id, int(wc.step) - 1)
     output:
-        vcf=os.path.join(annotation_dir, "{sample}.{interval_id}.annotated.vcf.gz")
+        annotation_dir + "/{sample}.{interval_id}.ann.step{step}.vcf.gz"
     log:
-        os.path.join(log_dir, "extra_annotations.{sample}.{interval_id}.log")
+        log_dir + "/extra_annotations.step{step}.{sample}.{interval_id}.log"
+    params:
+        # We pass the annotation details to shell so we can run SnpSift in conda environment
+        step_index = lambda wc: int(wc.step) - 1,
+        vcf_file = lambda wc: EXTRA_VCF_ANNOTATIONS[int(wc.step) - 1]["vcf_file"],
+        info_field = lambda wc: EXTRA_VCF_ANNOTATIONS[int(wc.step) - 1]["info_field"],
+        annotation_prefix = lambda wc: EXTRA_VCF_ANNOTATIONS[int(wc.step) - 1]["annotation_prefix"],
     conda:
         CONDA_ENVIRONMENT_ANNOTATION
-    threads: 4
+    threads: 24
     resources:
         mem_mb=get_mem_from_threads,
-        time='72:00:00',
+        time="24:00:00",
         tmpdir=SCRATCH_DIR
-    params:
-        annotations=formatted_extra_annotations
     shell:
+        r'''
+        set -e
+        echo "Starting annotation_step {wildcards.step} at: $(date)" >> {log}
+
+        SnpSift -Xms4000m -Xmx8g annotate \
+          -info {params.info_field} \
+          -name {params.annotation_prefix} \
+          {params.vcf_file} {input} \
+        | bgzip -c > {output} 2>> {log}
+
+        bcftools index --threads {threads} -t {output} 2>> {log}
+
+        echo "Finished annotation_step {wildcards.step} at: $(date)" >> {log}
         '''
-        echo "Starting extra_annotations at: $(date)" >> {log}
-        final_vcf={input.vcf}
-        for vcf_annotation in {params.annotations}; do
-            IFS='|' read -r vcf_file info_field annotation_prefix <<< "$vcf_annotation"
-            output_vcf=$(echo $final_vcf | sed 's/.vcf.gz/.tmp.vcf.gz/')
-            SnpSift -Xms4000m -Xmx8g annotate -info $info_field -name $annotation_prefix \
-                $vcf_file $final_vcf | bgzip -c > $output_vcf
-            final_vcf=$output_vcf
-        done
-        mv $final_vcf {output.vcf}
-        bcftools index --threads {threads} -t {output.vcf} 2>> {log}
-        echo "Finished extra_annotations at: $(date)" >> {log}
+
+
+rule extra_annotations_final:
+    """
+    After the last step (step=N_ANNOTATIONS) is done, rename final file to .annotated.vcf.gz.
+    """
+    input:
+        lambda wc: annotation_step_vcf(wc.sample, wc.interval_id, N_ANNOTATIONS)
+    output:
+        annotation_dir + "/{sample}.{interval_id}.annotated.vcf.gz"
+    log:
+        log_dir + "/extra_annotations.final.{sample}.{interval_id}.log"
+    conda:
+        CONDA_ENVIRONMENT_ANNOTATION
+    threads: 2
+    resources:
+        mem_mb=get_mem_from_threads,
+        time="24:00:00",
+        tmpdir=SCRATCH_DIR
+    shell:
+        r'''
+        set -e
+        echo "Renaming final-step VCF to .annotated.vcf.gz at: $(date)" > {log}
+        mv {input} {output}
+        bcftools index --threads {threads} -t {output} 2>> {log}
+        echo "Done final rename at: $(date)" >> {log}
         '''
-# ----------------------------------------------------------------------------------- #
 
 # ----------------------------------------------------------------------------------- #
 # RULE: concatenate_annotated_vcfs
 # After all intervals are annotated, this rule concatenates them into a single VCF per sample.
 rule concatenate_annotated_vcfs:
     input:
-        lambda w: expand(os.path.join(annotation_dir, "{sample}.{interval_id}.annotated.vcf.gz"),
-                         sample=[w.sample],
-                         interval_id=interval_ids)
+        # We rely on the final .annotated.vcf.gz for each interval
+        lambda w: expand(
+            os.path.join(annotation_dir, "{sample}.{interval_id}.annotated.vcf.gz"),
+            sample=[w.sample],
+            interval_id=interval_ids
+        )
     output:
         concatenated_vcf=os.path.join(annotation_dir, "{sample}.annotated.vcf.gz")
     log:
         os.path.join(log_dir, "concatenate_annotated_vcfs.{sample}.log")
     conda:
         CONDA_ENVIRONMENT_ANNOTATION
-    threads: 4
+    threads: 2
     resources:
         mem_mb=get_mem_from_threads,
-        time='72:00:00',
+        time="24:00:00",
         tmpdir=SCRATCH_DIR
     shell:
-        '''
+        r'''
         echo "Starting concatenate_annotated_vcfs at: $(date)" >> {log}
         bcftools concat -Oz --threads {threads} {input} -o {output.concatenated_vcf} 2>> {log}
         bcftools index --threads {threads} -t {output.concatenated_vcf} 2>> {log}

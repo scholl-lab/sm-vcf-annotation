@@ -55,7 +55,7 @@ def get_vcf_files():
 
 def get_mem_from_threads(wildcards, threads):
     """Calculate the amount of memory to allocate based on the number of threads."""
-    return 4096 * threads
+    return 8192 * threads
 
 def format_extra_annotations(annotations):
     """Format extra annotations into a space-separated string."""
@@ -151,14 +151,38 @@ rule snpsift_annotation_dbnsfp:
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         '''
 
-# Rule "extra_annotations": Adds arbitrary VCF annotations using SnpSift annotate.
-rule extra_annotations:
+# ----------------------------------------------------------------------------------- #
+# STEP-BY-STEP EXTRA ANNOTATIONS
+# ----------------------------------------------------------------------------------- #
+
+N_ANNOTATIONS = len(EXTRA_VCF_ANNOTATIONS)
+
+def annotation_step_vcf(sample, step):
+    """Return the path for a given step of extra annotation."""
+    if step == 0:
+        # Step 0 => input is the VCF after dbNSFP
+        return os.path.join(annotation_dir, f"{sample}.ann.dbnsfp.vcf.gz")
+    # step 1..N => intermediate files
+    return os.path.join(annotation_dir, f"{sample}.ann.step{step}.vcf.gz")
+
+
+rule annotation_step:
+    """
+    Applies exactly ONE annotation from EXTRA_VCF_ANNOTATIONS by step index.
+    step ranges from 1..N_ANNOTATIONS, referencing the i-th annotation in the config.
+    """
     input:
-        vcf = os.path.join(annotation_dir, '{sample}.ann.dbnsfp.vcf.gz')
+        lambda wc: annotation_step_vcf(wc.sample, int(wc.step) - 1)
     output:
-        vcf = os.path.join(annotation_dir, '{sample}.annotated.vcf.gz')
+        annotation_dir + "/{sample}.ann.step{step}.vcf.gz"
     log:
-        os.path.join(log_dir, 'extra_annotations.{sample}.log')
+        log_dir + "/extra_annotations.step{step}.{sample}.log"
+    params:
+        # We pass the annotation details to shell so we can run SnpSift in conda environment
+        step_index = lambda wc: int(wc.step) - 1,
+        vcf_file = lambda wc: EXTRA_VCF_ANNOTATIONS[int(wc.step) - 1]["vcf_file"],
+        info_field = lambda wc: EXTRA_VCF_ANNOTATIONS[int(wc.step) - 1]["info_field"],
+        annotation_prefix = lambda wc: EXTRA_VCF_ANNOTATIONS[int(wc.step) - 1]["annotation_prefix"],
     conda:
         CONDA_ENVIRONMENT_ANNOTATION
     threads: 4
@@ -166,29 +190,92 @@ rule extra_annotations:
         mem_mb = get_mem_from_threads,      # Memory in MB based on the number of threads
         time = '72:00:00',                  # Time limit for the job
         tmpdir = SCRATCH_DIR,               # Temporary directory
-    params:
-        annotations = formatted_extra_annotations
     shell:
-        '''
-        echo "Starting extra_annotations at: $(date)" >> {log}
-        final_vcf={input.vcf}
-        for vcf_annotation in {params.annotations}; do
-            IFS=',' read -r vcf_file info_field annotation_prefix <<< "$vcf_annotation"
-            output_vcf=$(echo $final_vcf | sed 's/.vcf.gz/.tmp.vcf.gz/')
-            SnpSift -Xms4000m -Xmx8g annotate -info $info_field -name $annotation_prefix $vcf_file $final_vcf | bgzip -c > $output_vcf
-            final_vcf=$output_vcf
-        done
-        mv $final_vcf {output.vcf}
-        bcftools index --threads {threads} -t {output.vcf} 2>> {log}
-        echo "Finished extra_annotations at: $(date)" >> {log}
+        r'''
+        echo "Starting annotation_step {wildcards.step} at: $(date)" >> {log}
+
+        SnpSift -Xms4000m -Xmx8g annotate \
+          -info {params.info_field} \
+          -name {params.annotation_prefix} \
+          {params.vcf_file} {input} \
+        | bgzip -c > {output} 2>> {log}
+
+        bcftools index --threads {threads} -t {output} 2>> {log}
+
+        echo "Finished annotation_step {wildcards.step} at: $(date)" >> {log}
         '''
 
-# Rule "clean_intermediate_files": Deletes the intermediate files generated during the annotation to free up space.
+
+rule extra_annotations_final:
+    """
+    After the last step (step=N_ANNOTATIONS) is done, rename final file to .annotated.vcf.gz.
+    """
+    input:
+        lambda wc: annotation_step_vcf(wc.sample, N_ANNOTATIONS)
+    output:
+        annotation_dir + "/{sample}.annotated.vcf.gz"
+    log:
+        log_dir + "/extra_annotations.final.{sample}.log"
+    conda:
+        CONDA_ENVIRONMENT_ANNOTATION
+    threads: 4
+    resources:
+        mem_mb = get_mem_from_threads,      # Memory in MB based on the number of threads
+        time = '72:00:00',                  # Time limit for the job
+        tmpdir = SCRATCH_DIR,               # Temporary directory
+    shell:
+        r'''
+        echo "Renaming final-step VCF to .annotated.vcf.gz at: $(date)" > {log}
+        mv {input} {output}
+        bcftools index --threads {threads} -t {output} 2>> {log}
+        echo "Done final rename at: $(date)" >> {log}
+        '''
+
+
+# Handle the case when there are no extra annotations defined
+if N_ANNOTATIONS == 0:
+    rule no_extra_annotations:
+        input:
+            os.path.join(annotation_dir, "{sample}.ann.dbnsfp.vcf.gz")
+        output:
+            os.path.join(annotation_dir, "{sample}.annotated.vcf.gz")
+        log:
+            os.path.join(log_dir, "no_extra_annotations.{sample}.log")
+        conda:
+            CONDA_ENVIRONMENT_ANNOTATION
+        threads: 4
+        resources:
+            mem_mb = get_mem_from_threads,
+            time = '1:00:00',
+            tmpdir = SCRATCH_DIR
+        shell:
+            r'''
+            echo "No extra annotations configured, just renaming file at: $(date)" > {log}
+            cp {input} {output}
+            bcftools index --threads {threads} -t {output} 2>> {log}
+            echo "Done at: $(date)" >> {log}
+            '''
+
+# Rule "clean_intermediate_files": Deletes all intermediate files generated during the annotation to free up space.
 rule clean_intermediate_files:
     input:
-        "{annotation_dir}/{sample}.ann.vcf.gz"
+        final_vcf = os.path.join(annotation_dir, "{sample}.annotated.vcf.gz")
+    params:
+        annotation_dir = annotation_dir,
+        sample = "{sample}"
     shell:
         '''
-        rm {input} {input}.tbi
+        # Remove the initial snpEff output
+        rm -f {params.annotation_dir}/{params.sample}.ann.vcf.gz {params.annotation_dir}/{params.sample}.ann.vcf.gz.tbi {params.annotation_dir}/{params.sample}.ann.vcf.gz.html
+        
+        # Remove the vartype annotated files
+        rm -f {params.annotation_dir}/{params.sample}.ann.vartype.vcf.gz {params.annotation_dir}/{params.sample}.ann.vartype.vcf.gz.tbi
+        
+        # Remove the dbnsfp annotated files
+        rm -f {params.annotation_dir}/{params.sample}.ann.dbnsfp.vcf.gz {params.annotation_dir}/{params.sample}.ann.dbnsfp.vcf.gz.tbi
+        
+        # Remove all step-wise annotation files
+        rm -f {params.annotation_dir}/{params.sample}.ann.step*.vcf.gz {params.annotation_dir}/{params.sample}.ann.step*.vcf.gz.tbi
+        
+        echo "Removed all intermediate files for {params.sample}"
         '''
-# ----------------------------------------------------------------------------------- #

@@ -1,0 +1,57 @@
+# Snakemake 8+ workflow profile for sm-vcf-annotation
+# This is the --workflow-profile (ships with the repo).
+# Cluster-specific settings (executor, account, partition) go in
+# a separate --profile (e.g., profiles/bih/ or profiles/charite/).
+
+latency-wait: 60
+jobs: 20
+rerun-incomplete: true
+printshellcmds: true
+software-deployment-method:
+  - conda
+
+# Shared filesystem assumptions (typical HPC with Lustre/GPFS/NFS)
+shared-fs-usage:
+  - persistence
+  - software-deployment
+  - sources
+  - source-cache
+  - input-output
+
+default-resources:
+  mem_mb: 4000
+  runtime: 120
+
+set-threads:
+  snpeff_annotation: 4
+  snpsift_variant_type: 4
+  snpsift_annotation_dbnsfp: 4
+  annotation_step: 4
+  finalize_annotation: 2
+  scatter_intervals_by_ns: 1
+  split_intervals: 4
+  scatter_vcf: 2
+  concatenate_annotated_vcfs: 4
+
+set-resources:
+  snpeff_annotation:
+    mem_mb: 32768
+    runtime: 4320
+  snpsift_variant_type:
+    mem_mb: 32768
+    runtime: 4320
+  snpsift_annotation_dbnsfp:
+    mem_mb: 32768
+    runtime: 4320
+  annotation_step:
+    mem_mb: 32768
+    runtime: 4320
+  finalize_annotation:
+    mem_mb: 4000
+    runtime: 60
+  scatter_vcf:
+    mem_mb: 8192
+    runtime: 1440
+  concatenate_annotated_vcfs:
+    mem_mb: 8192
+    runtime: 1440

@@ -1,0 +1,19 @@
+# Charite HPC -- uses the SLURM executor plugin
+# Requires: pip install snakemake-executor-plugin-slurm
+executor: slurm
+jobs: 50
+latency-wait: 60
+
+default-resources:
+  slurm_partition: compute
+  mem_mb_per_cpu: 4400
+  runtime: 120
+
+# Partition overrides for long-running annotation jobs
+set-resources:
+  snpeff_annotation:
+    slurm_partition: long
+  snpsift_annotation_dbnsfp:
+    slurm_partition: long
+  annotation_step:
+    slurm_partition: long

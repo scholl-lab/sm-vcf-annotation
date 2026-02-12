@@ -1,73 +1,160 @@
-# VCF Annotation Pipeline
+# sm-vcf-annotation
 
-This repository contains a Snakemake workflow script for annotating VCF files using the snpEff and SnpSift tools. Below, you will find the details of the script, the configuration file, and the resources required to run the pipeline.
+Snakemake 8+ pipeline for annotating VCF files using snpEff, SnpSift, and dbNSFP.
 
-## Script Description
+## Features
 
-The Snakemake script reads the configuration parameters from "config.yaml" and orchestrates a pipeline with the following rules to process VCF files:
+- **Unified workflow** — single Snakefile handles both single-pass and scattered (interval-based) annotation
+- **Profile-driven resources** — no hardcoded threads/memory; all tuning via `profiles/`
+- **Schema validation** — config and samples validated at startup
+- **YAML conda environments** — pinned, reproducible tool versions
+- **Cluster auto-detection** — launcher script detects BIH, Charité, or local execution
 
-1. **snpeff_annotation**: This rule annotates VCF files using snpEff with a specified database and additional flags. The output, including an HTML file containing statistics for each annotation, is compressed using bgzip.
+## Quick Start
 
-2. **snpsift_annotation_dbnsfp**: This rule takes the output of the `snpeff_annotation` rule and further annotates it using SnpSift with the dbNSFP database specified in the configuration file. The output is then compressed using bgzip.
+### 1. Generate config files
 
-3. **clean_intermediate_files**: This rule deletes the intermediate files created after the snpEff annotation to conserve storage space.
+```bash
+# Interactive wizard
+python scripts/generate_config.py
 
-4. **all**: This rule serves as a checkpoint to ensure all individual annotations are performed on all VCF files in the specified input folder.
+# Or with flags
+python scripts/generate_config.py --vcf-folder /path/to/vcfs
+```
 
-## Configuration File
+### 2. Edit configuration
 
-The configuration file, "config.yaml," contains the following user-defined parameters:
+Edit `config/config.yaml` to set database paths:
 
 ```yaml
-output_folder: "path/to/output/folder"
-vcf_input_folder: "path/to/vcf/input/folder"
-snpeff_annotation_db: "path/to/snpeff/annotation/database"
-snpeff_additional_flags: "additional flags for snpEff"
-snpsift_db_location: "path/to/snpsift/database/location"
-annotation_subfolder: "annotation"  # Subfolder name for the annotation outputs
-log_subfolder: "logs"  # Subfolder name for the log files
-conda_environment_annotation: "annotation"  # Name of the conda environment for annotation
-snpsift_dbnsfp_fields: "fields for SnpSift annotation" # no spaces allowed
+snpeff:
+  database: "GRCh37.p13"
+snpsift:
+  dbnsfp_db: "/path/to/dbNSFP4.9a_grch37.gz"
 ```
 
-Ensure that the paths and parameters in "config.yaml" are correctly set up before running the script.
+For scatter mode (large multisample VCFs), also set:
 
-## Required Resources
-
-Before running the script, ensure the following:
-
-- snpEff and SnpSift tools are correctly installed and configured, including their respective databases.
-- Bcftools is installed and accessible in your conda environment.
-- The conda environment specified for annotation is set up with all necessary packages installed.
-
-## Running the Script
-
-To execute the workflow, navigate to the directory containing the Snakemake file and use the following command in your terminal:
-
-```sh
-snakemake -s annotate_snpeff_snpsift.smk --use-conda --cores 50
+```yaml
+ref:
+  genome: "/path/to/reference.fa"
+  dict: "/path/to/reference.dict"
+scatter:
+  mode: "interval"
+  count: 100
+  canonical_contigs: ["chr1", "chr2", ...]
 ```
 
-Replace `50` with the number of cores you wish to allocate to the workflow.
+### 3. Run the pipeline
 
-## Logging
+```bash
+# On HPC (auto-detects cluster)
+sbatch scripts/run_snakemake.sh
 
-The script logs the start and end times of each rule to facilitate performance profiling and troubleshooting. Log files are stored in the directory specified under `log_subfolder` in the configuration file.
+# With custom config
+sbatch scripts/run_snakemake.sh config/config.yaml
 
-## Contribution
+# Local execution
+snakemake -s workflow/Snakefile --workflow-profile profiles/default --profile profiles/local
+```
 
-Feel free to fork the repository and submit pull requests for any enhancements or bug fixes. Contributions to improve the script or documentation are welcome.
+## Configuration Reference
 
-## TODOs/Open Issues for Improvement
+See [`config/README.md`](config/README.md) for full field reference.
 
-1. **Resource Allocation**: Move resource and thread allocation settings, including runtime, to the configuration file or dynamically compute them based on the available system resources.
+### Config Key Migration (from legacy layout)
 
-2. **Java Memory Limits**: Remove hardcoded Java memory limits and allow them to be specified in the configuration file or computed dynamically based on the available memory.
+| Old Key | New Key |
+|---------|---------|
+| `snpeff_annotation_db` | `snpeff.database` |
+| `snpeff_additional_flags` | `snpeff.extra_flags` |
+| `snpsift_db_location` | `snpsift.dbnsfp_db` |
+| `snpsift_dbnsfp_fields` | `snpsift.dbnsfp_fields` |
+| `vcf_input_folder` | `paths.vcf_folder` |
+| `output_folder` | `paths.output_folder` |
+| `annotation_subfolder` | `paths.annotation_subdir` |
+| `log_subfolder` | `paths.log_subdir` |
+| `conda_environment_annotation` | *(removed — uses workflow/envs/*.yaml)* |
+| `extra_vcf_annotations` | `extra_annotations` |
+| `reference_genome` | `ref.genome` |
+| `reference_dict` | `ref.dict` |
+| `scatter_count` | `scatter.count` |
+| `canonical_contigs` | `scatter.canonical_contigs` |
 
-3. **Flexible Input**: Allow more flexible input by accepting non-gzipped VCF files and making the file extension a parameter in the configuration file.
+## Profiles
 
-4. **Improved Error Handling**: Implement better error handling to gracefully handle any issues that may arise during execution and provide informative error messages to facilitate debugging.
+| Profile | Description |
+|---------|-------------|
+| `profiles/default/` | Workflow profile: resource allocation, conda, shared-fs |
+| `profiles/bih/` | BIH HPC: SLURM executor, medium partition, scholl-lab account |
+| `profiles/charite/` | Charité HPC: SLURM executor, compute partition |
+| `profiles/local/` | Local execution: 4 jobs, conda only |
 
-5. **Documentation**: Enhance the documentation to provide more detailed instructions for setting up and using the various databases required by snpEff and SnpSift, possibly including a guide for setting up the necessary conda environments.
+## Repository Structure
 
-6. **Testing**: Develop a suite of tests to verify that the script is functioning correctly, including tests for different input file formats and annotations.
+```
+workflow/
+  Snakefile              # Entry point (Snakemake 8+)
+  rules/
+    common.smk           # Config shortcuts, input functions
+    snpeff.smk           # snpEff annotation rule
+    snpsift.smk          # SnpSift varType, dbNSFP, extra annotations
+    scatter.smk          # Conditional scatter/gather (GATK)
+    helpers.py           # Pure Python helpers (unit-testable)
+  envs/
+    snpeff.yaml          # snpEff + SnpSift + bcftools
+    gatk.yaml            # GATK4 + samtools
+  schemas/
+    config.schema.yaml   # Config validation
+    samples.schema.yaml  # Samples validation
+config/
+  config.yaml            # Pipeline configuration
+  samples.tsv            # Sample sheet
+  README.md              # Config field reference
+profiles/
+  default/               # Workflow profile (resource allocation)
+  bih/                   # BIH HPC cluster profile
+  charite/               # Charité HPC cluster profile
+  local/                 # Local execution profile
+scripts/
+  run_snakemake.sh       # Unified launcher with cluster detection
+  generate_config.py     # Config file generator
+tests/
+  test_helpers.py        # Unit tests for helpers.py
+  test_schema_validation.py  # Schema validation tests
+  test_generate_config.py    # Config generator tests
+  test_dryrun.py         # Snakemake dry-run integration test
+deprecated/              # Legacy files (for reference)
+```
+
+## Development
+
+```bash
+# Install dev tools
+make install-dev
+
+# Run all checks
+make lint
+
+# Auto-format
+make format
+
+# Run unit tests
+make test-unit
+
+# Run all tests (including dry-run)
+make test
+```
+
+## Annotation Pipeline
+
+The workflow performs these steps per sample (per scatter interval if `scatter.mode: "interval"`):
+
+1. **snpEff** — variant annotation (gene, transcript, functional impact)
+2. **SnpSift varType** — variant type classification (SNP, INS, DEL, etc.)
+3. **SnpSift dbNSFP** — functional prediction scores (SIFT, PolyPhen, CADD, etc.)
+4. **Extra annotations** (optional) — step-wise SnpSift annotate from custom VCFs
+5. **Finalize** — copy/rename to `.annotated.vcf.gz`
+6. **Concatenate** (scatter mode only) — merge intervals back into one VCF per sample
+
+Intermediate files use Snakemake `temp()` for automatic cleanup.

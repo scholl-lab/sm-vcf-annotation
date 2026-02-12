@@ -1,0 +1,41 @@
+"""sm-vcf-annotation: VCF annotation pipeline using snpEff, SnpSift, and dbNSFP.
+
+Requires Snakemake 8.0+. Uses the SLURM executor plugin for cluster execution.
+"""
+
+from snakemake.utils import min_version, validate
+
+min_version("8.0")
+
+import pandas as pd
+
+
+# -- Configuration -----------------------------------------------------------
+configfile: "config/config.yaml"
+
+
+validate(config, "schemas/config.schema.yaml")
+
+samples_df = pd.read_table(config["paths"]["samples"]).set_index("sample", drop=False)
+validate(samples_df, "schemas/samples.schema.yaml")
+
+
+# -- Wildcard constraints ----------------------------------------------------
+wildcard_constraints:
+    sample="[A-Za-z0-9_.-]+",
+    scatter_unit="(all|[0-9]{4}-scattered)",
+    step="[0-9]+",
+
+
+# -- Includes ----------------------------------------------------------------
+include: "rules/common.smk"
+include: "rules/scatter.smk"
+include: "rules/snpeff.smk"
+include: "rules/snpsift.smk"
+
+
+# -- Target rule -------------------------------------------------------------
+rule all:
+    localrule: True
+    input:
+        get_final_outputs(),

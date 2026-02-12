@@ -1,11 +1,26 @@
-# Charite HPC -- uses the SLURM executor plugin
+# =============================================================================
+# Charite HPC cluster profile (Snakemake 8+ executor plugin)
+# =============================================================================
+# Loaded via --profile profiles/charite (auto-detected by run_snakemake.sh).
+#
+# The Charite cluster has no system-wide Snakemake profile, so we provide
+# SLURM executor settings here. On BIH HPC, cubi-v1 serves this role.
+#
 # Requires: pip install snakemake-executor-plugin-slurm
+#
+# Key Charite constraints:
+#   - Max walltime: 2 days (2-00:00:00)
+#   - Frontend memory limit: 1 GB (run coordinator as SLURM job)
+#   - Conda requires: source /etc/profile.d/conda.sh
+# =============================================================================
+
 executor: slurm
 jobs: 50
 latency-wait: 60
 
 default-resources:
   slurm_partition: compute
+  slurm_account: sc-users
   mem_mb_per_cpu: 4400
   runtime: 120
 

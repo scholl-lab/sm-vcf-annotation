@@ -4,7 +4,6 @@
 # a separate --profile (e.g., profiles/bih/ or profiles/charite/).
 
 latency-wait: 60
-jobs: 20
 rerun-incomplete: true
 printshellcmds: true
 software-deployment-method:
@@ -34,28 +33,39 @@ set-threads:
   scatter_vcf: 2
   concatenate_annotated_vcfs: 4
 
+# Per-rule resource overrides
+# cpus_per_task mirrors set-threads as a workaround for
+# snakemake-executor-plugin-slurm#210 (threads not mapped to --cpus-per-task).
 set-resources:
   snpeff_annotation:
     mem_mb: 32768
     runtime: 4320
+    cpus_per_task: 4
   snpsift_variant_type:
     mem_mb: 32768
     runtime: 4320
+    cpus_per_task: 4
   snpsift_annotation_dbnsfp:
     mem_mb: 32768
     runtime: 4320
+    cpus_per_task: 4
   annotation_step:
     mem_mb: 32768
     runtime: 4320
+    cpus_per_task: 4
   finalize_annotation:
     mem_mb: 4000
     runtime: 60
+    cpus_per_task: 2
   rename_no_scatter:
     mem_mb: 4000
     runtime: 60
+    cpus_per_task: 2
   scatter_vcf:
     mem_mb: 8192
     runtime: 1440
+    cpus_per_task: 2
   concatenate_annotated_vcfs:
     mem_mb: 8192
     runtime: 1440
+    cpus_per_task: 4

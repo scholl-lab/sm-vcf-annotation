@@ -28,6 +28,7 @@ set-threads:
   snpsift_annotation_dbnsfp: 4
   annotation_step: 4
   finalize_annotation: 2
+  rename_no_scatter: 2
   scatter_intervals_by_ns: 1
   split_intervals: 4
   scatter_vcf: 2
@@ -47,6 +48,9 @@ set-resources:
     mem_mb: 32768
     runtime: 4320
   finalize_annotation:
+    mem_mb: 4000
+    runtime: 60
+  rename_no_scatter:
     mem_mb: 4000
     runtime: 60
   scatter_vcf:

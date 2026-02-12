@@ -8,7 +8,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "workflow", "ru
 
 from helpers import (
     annotation_step_vcf,
-    format_extra_annotations,
     get_java_opts,
     get_samples,
     get_scatter_units,
@@ -92,27 +91,3 @@ class TestAnnotationStepVcf:
     def test_step_two_with_scatter(self):
         result = annotation_step_vcf("/out/ann", "SampleA", 2, "0005-scattered")
         assert result == os.path.join("/out/ann", "SampleA.0005-scattered.ann.step2.vcf.gz")
-
-
-class TestFormatExtraAnnotations:
-    def test_empty(self):
-        assert format_extra_annotations([]) == ""
-
-    def test_single(self):
-        annotations = [
-            {
-                "vcf_file": "/db/gnomad.vcf.gz",
-                "info_field": "AF",
-                "annotation_prefix": "GNOMAD_",
-            }
-        ]
-        result = format_extra_annotations(annotations)
-        assert result == "/db/gnomad.vcf.gz,AF,GNOMAD_"
-
-    def test_multiple(self):
-        annotations = [
-            {"vcf_file": "/db/a.vcf.gz", "info_field": "AF", "annotation_prefix": "A_"},
-            {"vcf_file": "/db/b.vcf.gz", "info_field": "AC", "annotation_prefix": "B_"},
-        ]
-        result = format_extra_annotations(annotations)
-        assert result == "/db/a.vcf.gz,AF,A_ /db/b.vcf.gz,AC,B_"

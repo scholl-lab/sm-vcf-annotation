@@ -23,14 +23,14 @@ rule snpeff_annotation:
         java_opts=get_java_opts,
         db=SNPEFF_DB,
         extra_flags=SNPEFF_EXTRA_FLAGS,
+        stats_html=os.path.join(LOG_DIR, "snpeff_stats.{sample}.{scatter_unit}.html"),
     conda:
         "../envs/snpeff.yaml"
     shell:
         r"""
         echo "Starting snpeff_annotation at: $(date)" >> {log}
         snpEff {params.java_opts} {params.db} {params.extra_flags} \
-            -stats {output.ann_vcf}.html {input.vcf_file} \
+            -stats {params.stats_html} {input.vcf_file} \
         | bgzip -c > {output.ann_vcf} 2>> {log}
-        bcftools index --threads {threads} -t {output.ann_vcf} 2>> {log}
         echo "Finished snpeff_annotation at: $(date)" >> {log}
         """

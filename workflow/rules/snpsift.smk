@@ -29,11 +29,9 @@ rule snpsift_variant_type:
         if [ "$variant_count" -eq 0 ]; then
             echo "No variants found, copying input to output." >> {log}
             cp {input.ann_vcf} {output.ann_vartype_vcf}
-            bcftools index --threads {threads} -t {output.ann_vartype_vcf} 2>> {log}
         else
             SnpSift {params.java_opts} varType {input.ann_vcf} \
             | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
-            bcftools index --threads {threads} -t {output.ann_vartype_vcf} 2>> {log}
         fi
         echo "Finished snpsift_variant_type at: $(date)" >> {log}
         """
@@ -76,7 +74,6 @@ rule snpsift_annotation_dbnsfp:
             -db {params.dbnsfp_db} \
             {input.ann_vartype_vcf} \
         | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
-        bcftools index --threads {threads} -t {output.ann_dbnsfp_vcf} 2>> {log}
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         """
 
@@ -121,7 +118,6 @@ if N_ANNOTATIONS > 0:
               -name {params.annotation_prefix} \
               {params.vcf_file} {input} \
             | bgzip -c > {output} 2>> {log}
-            bcftools index --threads {threads} -t {output} 2>> {log}
             echo "Finished annotation_step {wildcards.step} at: $(date)" >> {log}
             """
 
@@ -144,6 +140,5 @@ rule finalize_annotation:
         r"""
         echo "Finalizing annotation at: $(date)" > {log}
         cp {input} {output}
-        bcftools index --threads {threads} -t {output} 2>> {log}
         echo "Done at: $(date)" >> {log}
         """

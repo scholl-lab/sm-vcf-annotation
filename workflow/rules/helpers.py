@@ -47,11 +47,3 @@ def annotation_step_vcf(annotation_dir: str, sample: str, step: int, scatter_uni
     if step == 0:
         return os.path.join(annotation_dir, f"{sample}.{scatter_unit}.ann.dbnsfp.vcf.gz")
     return os.path.join(annotation_dir, f"{sample}.{scatter_unit}.ann.step{step}.vcf.gz")
-
-
-def format_extra_annotations(annotations: list[dict]) -> str:
-    """Format extra annotations into a space-separated string."""
-    parts = []
-    for ann in annotations:
-        parts.append(f"{ann['vcf_file']},{ann['info_field']},{ann['annotation_prefix']}")
-    return " ".join(parts)

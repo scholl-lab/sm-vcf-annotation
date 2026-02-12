@@ -1,0 +1,13 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+description: Schema for an entry in the sm-vcf-annotation sample sheet.
+
+type: object
+properties:
+  sample:
+    type: string
+    description: Unique sample identifier.
+  vcf_basename:
+    type: string
+    description: "Basename of VCF file (without .vcf.gz extension)."
+
+required: [sample, vcf_basename]

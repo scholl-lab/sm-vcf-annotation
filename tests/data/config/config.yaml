@@ -1,0 +1,25 @@
+ref:
+  genome: "/ref/GRCh37.p13.genome.fa"
+  dict: "/ref/GRCh37.p13.genome.dict"
+
+paths:
+  samples: "tests/data/config/samples.tsv"
+  vcf_folder: "tests/data/vcfs"
+  output_folder: "results/annotation"
+  log_subdir: "logs"
+  annotation_subdir: "annotation"
+
+snpeff:
+  database: "GRCh37.p13"
+  extra_flags: "-lof -noInteraction"
+
+snpsift:
+  dbnsfp_db: "dbnsfp/dbNSFP4.9a_grch37.gz"
+  dbnsfp_fields: "aaref,aaalt,SIFT_pred"
+
+scatter:
+  mode: "none"
+  count: 100
+  canonical_contigs: []
+
+extra_annotations: []

@@ -1,0 +1,94 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+description: Configuration for the sm-vcf-annotation pipeline.
+
+type: object
+properties:
+  ref:
+    type: object
+    description: "Reference genome files. Required when scatter.mode is 'interval'."
+    properties:
+      genome:
+        type: string
+        description: Path to reference genome FASTA.
+      dict:
+        type: string
+        description: Path to reference sequence dictionary (.dict).
+    required: [genome, dict]
+
+  paths:
+    type: object
+    properties:
+      samples:
+        type: string
+        description: Path to the samples TSV file.
+      vcf_folder:
+        type: string
+        description: Directory containing input VCF files.
+      output_folder:
+        type: string
+        description: Root directory for pipeline outputs.
+      log_subdir:
+        type: string
+        default: "logs"
+      annotation_subdir:
+        type: string
+        default: "annotation"
+    required: [samples, vcf_folder, output_folder]
+
+  snpeff:
+    type: object
+    properties:
+      database:
+        type: string
+        description: "snpEff database name (e.g., GRCh37.p13)."
+      extra_flags:
+        type: string
+        default: ""
+        description: Additional flags passed to snpEff.
+    required: [database]
+
+  snpsift:
+    type: object
+    properties:
+      dbnsfp_db:
+        type: string
+        description: Path to the dbNSFP database file.
+      dbnsfp_fields:
+        type: string
+        description: Comma-separated list of dbNSFP fields to annotate.
+    required: [dbnsfp_db, dbnsfp_fields]
+
+  scatter:
+    type: object
+    properties:
+      mode:
+        type: string
+        enum: ["interval", "none"]
+        description: "'interval' for GATK-based scattering, 'none' for single-pass."
+      count:
+        type: integer
+        minimum: 1
+        default: 100
+        description: Number of scatter intervals (only used when mode is 'interval').
+      canonical_contigs:
+        type: array
+        items:
+          type: string
+        description: List of canonical contigs to include when scattering.
+    required: [mode]
+
+  extra_annotations:
+    type: array
+    items:
+      type: object
+      properties:
+        vcf_file:
+          type: string
+        info_field:
+          type: string
+        annotation_prefix:
+          type: string
+      required: [vcf_file, info_field, annotation_prefix]
+    description: Optional list of extra VCF annotations to apply step-wise.
+
+required: [paths, snpeff, snpsift, scatter]

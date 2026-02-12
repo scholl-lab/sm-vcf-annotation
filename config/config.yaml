@@ -1,0 +1,44 @@
+# =============================================================================
+# sm-vcf-annotation configuration
+# =============================================================================
+# Copy this file and edit paths/parameters for your project.
+# See config/README.md for field descriptions.
+
+# -- Reference genome (required for scatter mode) ----------------------------
+ref:
+  genome: "/path/to/reference/GRCh37.p13.genome.fa"
+  dict: "/path/to/reference/GRCh37.p13.genome.dict"
+
+# -- Paths -------------------------------------------------------------------
+paths:
+  samples: "config/samples.tsv"
+  vcf_folder: "results/final"
+  output_folder: "results/annotation"
+  log_subdir: "logs"
+  annotation_subdir: "annotation"
+
+# -- snpEff ------------------------------------------------------------------
+snpeff:
+  database: "GRCh37.p13"
+  extra_flags: "-lof -noInteraction -noMotif -noNextProt -spliceRegionIntronMax 12"
+
+# -- SnpSift -----------------------------------------------------------------
+snpsift:
+  dbnsfp_db: "dbnsfp/dbNSFP4.9a_grch37.gz"
+  dbnsfp_fields: "aaref,aaalt,aapos,SIFT_pred,SIFT4G_score,Polyphen2_HDIV_pred,Polyphen2_HVAR_score,LRT_pred,MutationTaster_score,MutationTaster_converted_rankscore,MutationTaster_pred,MutationAssessor_score,MutationAssessor_rankscore,MutationAssessor_pred,FATHMM_score,FATHMM_converted_rankscore,FATHMM_pred,PROVEAN_score,PROVEAN_converted_rankscore,PROVEAN_pred,MetaSVM_score,MetaSVM_rankscore,MetaSVM_pred,M-CAP_score,M-CAP_rankscore,M-CAP_pred,REVEL_score,REVEL_rankscore,MVP_score,MVP_rankscore,MPC_score,MPC_rankscore,CADD_raw_rankscore,CADD_phred,GERP++_NR,GERP++_RS,GERP++_RS_rankscore,phastCons100way_vertebrate,1000Gp3_AC,1000Gp3_AF,1000Gp3_AFR_AC,1000Gp3_AFR_AF,1000Gp3_EUR_AC,1000Gp3_EUR_AF,1000Gp3_AMR_AC,1000Gp3_AMR_AF,1000Gp3_EAS_AC,1000Gp3_EAS_AF,1000Gp3_SAS_AC,1000Gp3_SAS_AF,gnomAD_exomes_flag,gnomAD_exomes_AC,gnomAD_exomes_AN,gnomAD_exomes_AF,gnomAD_exomes_nhomalt,gnomAD_genomes_flag,gnomAD_genomes_AC,gnomAD_genomes_AN,gnomAD_genomes_AF,gnomAD_genomes_nhomalt,ALFA_Asian_AF,ALFA_Total_AC,ALFA_Total_AN,ALFA_Total_AF,clinvar_id,clinvar_clnsig"
+
+# -- Scatter mode ------------------------------------------------------------
+# Set mode to "interval" for GATK-based scattering (large multisample VCFs)
+# Set mode to "none" for single-pass annotation
+scatter:
+  mode: "none"
+  count: 100
+  canonical_contigs: []
+
+# -- Extra annotations (optional) --------------------------------------------
+# Each entry applies one SnpSift annotate step sequentially.
+# extra_annotations:
+#   - vcf_file: "/path/to/annotation.vcf.gz"
+#     info_field: "AF"
+#     annotation_prefix: "MYDB_"
+extra_annotations: []

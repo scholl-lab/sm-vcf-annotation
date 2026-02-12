@@ -79,16 +79,14 @@ def get_final_annotation_input(wildcards):
 
 # -- Final output dispatcher -------------------------------------------------
 def get_final_outputs():
-    """Return all expected final output files."""
+    """Return all expected final output files.
+
+    Both modes produce {sample}.annotated.vcf.gz:
+    - none: rename_no_scatter copies {sample}.all.annotated.vcf.gz
+    - interval: concatenate_annotated_vcfs merges per-interval files
+    """
     samples = get_sample_list()
-    if SCATTER_MODE == "none":
-        return expand(
-            os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
-            sample=samples,
-        )
-    else:
-        # Scatter mode: final output is the concatenated VCF per sample
-        return expand(
-            os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
-            sample=samples,
-        )
+    return expand(
+        os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
+        sample=samples,
+    )

@@ -1,6 +1,7 @@
 """Snakemake dry-run integration test."""
 
 import os
+import shutil
 import subprocess
 
 import pytest
@@ -9,6 +10,10 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
 @pytest.mark.dryrun
+@pytest.mark.skipif(
+    shutil.which("snakemake") is None,
+    reason="snakemake not found on PATH",
+)
 def test_dryrun_no_scatter():
     """Verify the workflow DAG resolves with scatter.mode=none."""
     result = subprocess.run(

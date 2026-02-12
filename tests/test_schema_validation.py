@@ -63,10 +63,18 @@ class TestConfigSchema:
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(broken, config_schema)
 
-    def test_ref_optional(self, config_dict, config_schema):
+    def test_ref_optional_when_no_scatter(self, config_dict, config_schema):
         valid = copy.deepcopy(config_dict)
+        valid["scatter"]["mode"] = "none"
         del valid["ref"]
         jsonschema.validate(valid, config_schema)
+
+    def test_ref_required_when_interval_scatter(self, config_dict, config_schema):
+        broken = copy.deepcopy(config_dict)
+        broken["scatter"]["mode"] = "interval"
+        del broken["ref"]
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(broken, config_schema)
 
     def test_extra_annotations_valid(self, config_dict, config_schema):
         valid = copy.deepcopy(config_dict)
@@ -81,9 +89,7 @@ class TestConfigSchema:
 
     def test_extra_annotations_missing_field(self, config_dict, config_schema):
         broken = copy.deepcopy(config_dict)
-        broken["extra_annotations"] = [
-            {"vcf_file": "/db/ann.vcf.gz", "info_field": "AF"}
-        ]
+        broken["extra_annotations"] = [{"vcf_file": "/db/ann.vcf.gz", "info_field": "AF"}]
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(broken, config_schema)
 

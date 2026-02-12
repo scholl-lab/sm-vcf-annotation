@@ -92,3 +92,13 @@ properties:
     description: Optional list of extra VCF annotations to apply step-wise.
 
 required: [paths, snpeff, snpsift, scatter]
+
+# Conditionally require ref when scatter.mode is "interval"
+if:
+  properties:
+    scatter:
+      properties:
+        mode:
+          const: "interval"
+then:
+  required: [paths, snpeff, snpsift, scatter, ref]

@@ -1,6 +1,28 @@
 """Conditional scatter/gather rules for interval-based parallelization."""
 
-if SCATTER_MODE == "interval":
+if SCATTER_MODE == "none":
+
+    rule rename_no_scatter:
+        input:
+            os.path.join(
+                ANNOTATION_DIR,
+                "{sample}.all.annotated.vcf.gz",
+            ),
+        output:
+            os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
+        log:
+            os.path.join(LOG_DIR, "rename_no_scatter.{sample}.log"),
+        conda:
+            "../envs/snpeff.yaml"
+        shell:
+            r"""
+            echo "Renaming final annotation at: $(date)" > {log}
+            cp {input} {output}
+            bcftools index --threads {threads} -t {output} 2>> {log}
+            echo "Done at: $(date)" >> {log}
+            """
+
+elif SCATTER_MODE == "interval":
 
     INTERVALS_LIST = os.path.join(INTERVALS_DIR, "intervals.interval_list")
 

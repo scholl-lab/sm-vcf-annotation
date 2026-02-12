@@ -130,9 +130,11 @@ rule finalize_annotation:
     input:
         get_final_annotation_input,
     output:
-        os.path.join(
-            ANNOTATION_DIR,
-            "{sample}.{scatter_unit}.annotated.vcf.gz",
+        temp(
+            os.path.join(
+                ANNOTATION_DIR,
+                "{sample}.{scatter_unit}.annotated.vcf.gz",
+            )
         ),
     log:
         os.path.join(LOG_DIR, "finalize_annotation.{sample}.{scatter_unit}.log"),

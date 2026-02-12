@@ -69,9 +69,9 @@ class TestGetVcfPath:
     def test_different_basename(self):
         import pandas as pd
 
-        df = pd.DataFrame(
-            {"sample": ["S1"], "vcf_basename": ["different_name"]}
-        ).set_index("sample", drop=False)
+        df = pd.DataFrame({"sample": ["S1"], "vcf_basename": ["different_name"]}).set_index(
+            "sample", drop=False
+        )
         result = get_vcf_path("S1", "/vcfs", df)
         assert result == os.path.join("/vcfs", "different_name.vcf.gz")
 
@@ -79,23 +79,19 @@ class TestGetVcfPath:
 class TestAnnotationStepVcf:
     def test_step_zero_no_scatter(self):
         result = annotation_step_vcf("/out/ann", "SampleA", 0, "all")
-        assert result == os.path.join("/out/ann", "SampleA.ann.dbnsfp.vcf.gz")
+        assert result == os.path.join("/out/ann", "SampleA.all.ann.dbnsfp.vcf.gz")
 
     def test_step_one_no_scatter(self):
         result = annotation_step_vcf("/out/ann", "SampleA", 1, "all")
-        assert result == os.path.join("/out/ann", "SampleA.ann.step1.vcf.gz")
+        assert result == os.path.join("/out/ann", "SampleA.all.ann.step1.vcf.gz")
 
     def test_step_zero_with_scatter(self):
         result = annotation_step_vcf("/out/ann", "SampleA", 0, "0005-scattered")
-        assert result == os.path.join(
-            "/out/ann", "SampleA.0005-scattered.ann.dbnsfp.vcf.gz"
-        )
+        assert result == os.path.join("/out/ann", "SampleA.0005-scattered.ann.dbnsfp.vcf.gz")
 
     def test_step_two_with_scatter(self):
         result = annotation_step_vcf("/out/ann", "SampleA", 2, "0005-scattered")
-        assert result == os.path.join(
-            "/out/ann", "SampleA.0005-scattered.ann.step2.vcf.gz"
-        )
+        assert result == os.path.join("/out/ann", "SampleA.0005-scattered.ann.step2.vcf.gz")
 
 
 class TestFormatExtraAnnotations:

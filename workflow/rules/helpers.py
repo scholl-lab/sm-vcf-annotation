@@ -9,7 +9,7 @@ import pandas as pd
 
 
 def get_java_opts(mem_mb: int, tmpdir: str) -> str:
-    """Derive Java options from allocated resources (80% heap / 20% stack)."""
+    """Derive Java options from allocated resources (80% max heap / 20% initial heap)."""
     xmx = int(mem_mb * 0.8)
     xms = int(mem_mb * 0.2)
     return f"-Xms{xms}m -Xmx{xmx}m -Djava.io.tmpdir={tmpdir}"
@@ -42,15 +42,11 @@ def annotation_step_vcf(annotation_dir: str, sample: str, step: int, scatter_uni
     """Return the path for a given step of extra annotation.
 
     step=0 means the VCF after dbNSFP; step=1..N are intermediate files.
+    The scatter_unit is always included in the filename to match rule output patterns.
     """
-    if scatter_unit == "all":
-        unit_part = ""
-    else:
-        unit_part = f".{scatter_unit}"
-
     if step == 0:
-        return os.path.join(annotation_dir, f"{sample}{unit_part}.ann.dbnsfp.vcf.gz")
-    return os.path.join(annotation_dir, f"{sample}{unit_part}.ann.step{step}.vcf.gz")
+        return os.path.join(annotation_dir, f"{sample}.{scatter_unit}.ann.dbnsfp.vcf.gz")
+    return os.path.join(annotation_dir, f"{sample}.{scatter_unit}.ann.step{step}.vcf.gz")
 
 
 def format_extra_annotations(annotations: list[dict]) -> str:

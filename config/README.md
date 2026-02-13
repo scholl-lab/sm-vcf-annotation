@@ -14,16 +14,16 @@ Unified pipeline configuration. All paths are relative to the repository root.
 | `snpeff.database` | string | snpEff database name (e.g., `GRCh37.p13`) |
 | `snpsift.dbnsfp_db` | string | Path to dbNSFP database file (v4.x or v5.x) |
 | `snpsift.dbnsfp_fields` | string | Comma-separated dbNSFP fields (auto-selected for v4/v5 by config generator) |
-| `scatter.mode` | string | `"interval"` or `"none"` |
+| `scatter.mode` | string | `"none"`, `"chromosome"`, or `"interval"` |
 
-### Required for Scatter Mode (`scatter.mode: "interval"`)
+### Required for Scatter Modes (`scatter.mode: "chromosome"` or `"interval"`)
 
 | Field | Description |
 |-------|-------------|
 | `ref.genome` | Path to reference genome FASTA |
 | `ref.dict` | Path to reference sequence dictionary |
-| `scatter.count` | Number of scatter intervals (default: 100) |
-| `scatter.canonical_contigs` | List of canonical contigs to include |
+| `scatter.count` | Number of scatter intervals (default: 100, interval mode only) |
+| `scatter.canonical_contigs` | List of canonical contigs to include (used by both chromosome and interval modes) |
 
 ### Optional Fields
 

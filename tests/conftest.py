@@ -45,3 +45,35 @@ def config_dict():
         },
         "extra_annotations": [],
     }
+
+
+@pytest.fixture
+def config_dict_chromosome():
+    """Configuration dictionary with chromosome scatter mode."""
+    return {
+        "ref": {
+            "genome": "/ref/GRCh38.p14.genome.fa",
+            "dict": "/ref/GRCh38.p14.genome.dict",
+        },
+        "paths": {
+            "samples": "config/samples.tsv",
+            "vcf_folder": "results/final",
+            "output_folder": "results/annotation",
+            "log_subdir": "logs",
+            "annotation_subdir": "annotation",
+        },
+        "snpeff": {
+            "database": "GRCh38.p14",
+            "extra_flags": "-lof -noInteraction",
+        },
+        "snpsift": {
+            "dbnsfp_db": "dbnsfp/dbNSFP4.9a_grch38.gz",
+            "dbnsfp_fields": "aaref,aaalt,SIFT_pred",
+        },
+        "scatter": {
+            "mode": "chromosome",
+            "count": 100,
+            "canonical_contigs": [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"],
+        },
+        "extra_annotations": [],
+    }

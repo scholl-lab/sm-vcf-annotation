@@ -76,6 +76,16 @@ class TestConfigSchema:
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(broken, config_schema)
 
+    def test_valid_chromosome_mode(self, config_dict_chromosome, config_schema):
+        jsonschema.validate(config_dict_chromosome, config_schema)
+
+    def test_ref_required_when_chromosome_scatter(self, config_dict, config_schema):
+        broken = copy.deepcopy(config_dict)
+        broken["scatter"]["mode"] = "chromosome"
+        del broken["ref"]
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(broken, config_schema)
+
     def test_extra_annotations_valid(self, config_dict, config_schema):
         valid = copy.deepcopy(config_dict)
         valid["extra_annotations"] = [

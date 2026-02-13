@@ -5,7 +5,7 @@ type: object
 properties:
   ref:
     type: object
-    description: "Reference genome files. Required when scatter.mode is 'interval'."
+    description: "Reference genome files. Required when scatter.mode is 'interval' or 'chromosome'."
     properties:
       genome:
         type: string
@@ -63,8 +63,8 @@ properties:
     properties:
       mode:
         type: string
-        enum: ["interval", "none"]
-        description: "'interval' for GATK-based scattering, 'none' for single-pass."
+        enum: ["chromosome", "interval", "none"]
+        description: "'chromosome' for per-chromosome parallelization, 'interval' for GATK-based scattering, 'none' for single-pass."
       count:
         type: integer
         minimum: 1
@@ -74,7 +74,7 @@ properties:
         type: array
         items:
           type: string
-        description: List of canonical contigs to include when scattering.
+        description: List of canonical contigs to include when scattering (used by both chromosome and interval modes).
     required: [mode]
 
   extra_annotations:
@@ -93,12 +93,12 @@ properties:
 
 required: [paths, snpeff, snpsift, scatter]
 
-# Conditionally require ref when scatter.mode is "interval"
+# Conditionally require ref when scatter.mode is "interval" or "chromosome"
 if:
   properties:
     scatter:
       properties:
         mode:
-          const: "interval"
+          enum: ["interval", "chromosome"]
 then:
   required: [paths, snpeff, snpsift, scatter, ref]

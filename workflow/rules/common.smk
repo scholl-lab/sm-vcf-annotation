@@ -43,7 +43,7 @@ SCRATCH_DIR = os.environ.get("TMPDIR", "/tmp")
 
 
 # -- Scatter units -----------------------------------------------------------
-SCATTER_UNITS = _get_scatter_units_impl(SCATTER_MODE, SCATTER_COUNT)
+SCATTER_UNITS = _get_scatter_units_impl(SCATTER_MODE, CANONICAL_CONTIGS, SCATTER_COUNT)
 
 
 # -- Sample accessors --------------------------------------------------------
@@ -81,8 +81,9 @@ def get_final_annotation_input(wildcards):
 def get_final_outputs():
     """Return all expected final output files.
 
-    Both modes produce {sample}.annotated.vcf.gz:
+    All modes produce {sample}.annotated.vcf.gz:
     - none: rename_no_scatter copies {sample}.all.annotated.vcf.gz
+    - chromosome: concatenate_annotated_vcfs merges per-chromosome files
     - interval: concatenate_annotated_vcfs merges per-interval files
     """
     samples = get_sample_list()

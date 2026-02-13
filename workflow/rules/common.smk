@@ -43,7 +43,11 @@ SCRATCH_DIR = os.environ.get("TMPDIR", "/tmp")
 
 
 # -- Scatter units -----------------------------------------------------------
-SCATTER_UNITS = _get_scatter_units_impl(SCATTER_MODE, CANONICAL_CONTIGS, SCATTER_COUNT)
+SCATTER_UNITS = _get_scatter_units_impl(
+    mode=SCATTER_MODE,
+    chromosomes=CANONICAL_CONTIGS,
+    scatter_count=SCATTER_COUNT,
+)
 
 
 # -- Sample accessors --------------------------------------------------------

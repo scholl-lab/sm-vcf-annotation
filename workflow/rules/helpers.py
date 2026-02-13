@@ -32,7 +32,11 @@ def get_scatter_units(
     - mode="none": returns ["all"]
     """
     if mode == "chromosome":
-        return chromosomes or []
+        if not chromosomes:
+            raise ValueError(
+                "get_scatter_units(mode='chromosome') requires a non-empty 'chromosomes' list."
+            )
+        return chromosomes
     if mode == "interval":
         return [f"{i:04d}-scattered" for i in range(scatter_count)]
     return ["all"]

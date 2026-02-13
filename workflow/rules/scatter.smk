@@ -38,7 +38,6 @@ elif SCATTER_MODE == "chromosome":
             echo "Starting scatter_vcf_chromosome at: $(date)" >> {log}
             bcftools view -r {wildcards.scatter_unit} {input.vcf_file} \
                 -Oz --threads {threads} -o {output} 2>> {log}
-            bcftools index --threads {threads} -t {output} 2>> {log}
             echo "Finished scatter_vcf_chromosome at: $(date)" >> {log}
             """
 

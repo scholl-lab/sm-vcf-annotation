@@ -64,9 +64,17 @@ class TestGetScatterUnits:
         result = get_scatter_units("chromosome", chromosomes=chroms)
         assert result == chroms
 
-    def test_chromosome_mode_no_chromosomes(self):
-        result = get_scatter_units("chromosome")
-        assert result == []
+    def test_chromosome_mode_no_chromosomes_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="non-empty"):
+            get_scatter_units("chromosome")
+
+    def test_chromosome_mode_empty_list_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="non-empty"):
+            get_scatter_units("chromosome", chromosomes=[])
 
     def test_chromosome_mode_grch37_contigs(self):
         contigs = ["1", "2", "3", "X", "Y"]

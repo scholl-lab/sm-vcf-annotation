@@ -371,8 +371,10 @@ Input VCF
 
 ### Scatter/Gather DAG (mode: "chromosome")
 
+Requires tabix-indexed input VCFs (`.vcf.gz` + `.tbi`).
+
 ```
-Input VCF
+Input VCF (.vcf.gz + .tbi)
     └── scatter_vcf_chromosome (bcftools view -r, per sample x chromosome) [temp]
         └── annotation pipeline (per chromosome) → concatenate → final VCF
 ```

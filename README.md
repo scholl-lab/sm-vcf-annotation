@@ -89,45 +89,53 @@ The pipeline requires:
 
 ## Generate Config Files
 
-The config generator scans your VCF directory, discovers samples, and writes `config/samples.tsv` and `config/config.yaml`.
+The config generator scans your VCF directory, discovers samples, and auto-detects annotation databases (reference genome, dbNSFP, extra annotation VCFs) to write `config/samples.tsv` and `config/config.yaml`.
 
 ### Interactive wizard (recommended for first-time setup)
 
-Run without arguments for a guided workflow:
+Run without arguments for a guided 9-step workflow:
 
 ```bash
 python scripts/generate_config.py
 ```
 
-```
-============================================================
-  sm-vcf-annotation — Config Generator
-============================================================
+The wizard will:
 
-Path to VCF folder [results/final]: /data/variant_calls
+1. Check for a sibling [sm-calling](https://github.com/scholl-lab/sm-calling) project and suggest its VCF output folder
+2. Prompt for VCF folder and discover samples
+3. Auto-scan for reference genome (searches `resources/ref/`, shared HPC paths, etc.)
+4. Detect genome build (GRCh38/GRCh37) from the reference filename
+5. Auto-scan for dbNSFP database matching the detected build
+6. Auto-scan for known extra annotation VCFs (ClinVar, HGMD, COSMIC, dbscSNV, SPIDEX)
+7. Configure scatter mode (none/interval) with canonical contigs from `.dict` file
+8. Show summary and confirm before writing
 
-Found 3 VCF file(s):
-  sample1.vcf.gz  (1.2 GB)
-  sample2.vcf.gz  (890.5 MB)
-  sample3.vcf.gz  (2.1 GB)
-
-Generated 3 sample(s).
-
-Write config files? [Y/n]:
-  Wrote: config/samples.tsv
-  Wrote: config/config.yaml
-
-Done! Edit config/config.yaml to set database paths before running.
-```
+Any databases not found automatically get `EDIT_ME:` placeholders in the generated config.
 
 ### From sm-calling output (flags mode)
 
 When you have VCF files from [sm-calling](https://github.com/scholl-lab/sm-calling):
 
 ```bash
-# Generate samples.tsv from VCF directory
+# Auto-detect everything from VCF directory
+python scripts/generate_config.py --vcf-folder results/variant_calls/
+
+# Specify reference and annotation directories explicitly
 python scripts/generate_config.py \
-    --vcf-folder results/variant_calls/
+    --vcf-folder results/variant_calls/ \
+    --ref-dir resources/ref/GRCh38 \
+    --dbnsfp-dir resources/dbnsfp \
+    --annotation-dir resources/annotation
+
+# Override genome build (skips auto-detection)
+python scripts/generate_config.py \
+    --vcf-folder results/variant_calls/ \
+    --genome-build GRCh37
+
+# Enable scatter mode
+python scripts/generate_config.py \
+    --vcf-folder results/variant_calls/ \
+    --scatter-mode interval --scatter-count 50
 
 # Preview without writing (dry-run)
 python scripts/generate_config.py --vcf-folder /path/to/vcfs --dry-run
@@ -141,8 +149,24 @@ python scripts/generate_config.py --vcf-folder /path/to/vcfs --overwrite
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--vcf-folder PATH` | *(interactive)* | VCF directory (triggers non-interactive mode) |
+| `--ref-dir PATH` | *(auto-scan)* | Reference genome directory |
+| `--dbnsfp-dir PATH` | *(auto-scan)* | dbNSFP database directory |
+| `--annotation-dir PATH` | *(auto-scan)* | Extra annotation VCFs directory |
+| `--genome-build` | *(auto-detect)* | `GRCh37` or `GRCh38` |
+| `--scatter-mode` | `none` | `none` or `interval` |
+| `--scatter-count` | `100` | Number of scatter intervals |
 | `--dry-run` | off | Preview without writing |
 | `--overwrite` | off | Overwrite existing config files |
+
+### Auto-discovery search paths
+
+The generator searches these locations (relative to project root, plus shared HPC paths):
+
+| Resource | Search directories |
+|----------|-------------------|
+| Reference genome | `resources/ref/GRCh3{7,8}`, `analysis/ref/`, `../resources/ref/`, BIH shared paths |
+| dbNSFP | `dbnsfp/`, `resources/dbnsfp/`, `annotation/dbnsfp/`, `../resources/dbnsfp/`, BIH shared paths |
+| Extra annotations | `annotation/`, `resources/annotation/`, `../annotation/`, BIH shared paths |
 
 ---
 

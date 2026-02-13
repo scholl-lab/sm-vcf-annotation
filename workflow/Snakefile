@@ -32,6 +32,7 @@ include: "rules/common.smk"
 include: "rules/scatter.smk"
 include: "rules/snpeff.smk"
 include: "rules/snpsift.smk"
+include: "rules/qc.smk"
 
 
 # -- Target rule -------------------------------------------------------------

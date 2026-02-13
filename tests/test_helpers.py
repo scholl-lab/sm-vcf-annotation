@@ -12,6 +12,8 @@ from helpers import (
     get_samples,
     get_scatter_units,
     get_vcf_path,
+    parse_annotation_completeness,
+    parse_snpsift_tstv,
 )
 
 
@@ -129,3 +131,96 @@ class TestAnnotationStepVcf:
     def test_step_one_with_chromosome(self):
         result = annotation_step_vcf("/out/ann", "SampleA", 1, "chr1")
         assert result == os.path.join("/out/ann", "SampleA.chr1.ann.step1.vcf.gz")
+
+
+class TestParseAnnotationCompleteness:
+    def test_all_annotated(self):
+        lines = [
+            "chr1\t100\tA|missense\tD\t0.95\n",
+            "chr1\t200\tA|synonymous\tT\t0.5\n",
+        ]
+        fields = ["ANN", "SIFT_pred", "REVEL_score"]
+        result = parse_annotation_completeness(lines, fields)
+        assert result["ANN"]["total"] == 2
+        assert result["ANN"]["annotated"] == 2
+        assert result["ANN"]["rate"] == 1.0
+        assert result["SIFT_pred"]["annotated"] == 2
+        assert result["REVEL_score"]["annotated"] == 2
+
+    def test_partial_annotation(self):
+        lines = [
+            "chr1\t100\tA|missense\t.\t0.95\n",
+            "chr1\t200\t.\tT\t.\n",
+        ]
+        fields = ["ANN", "SIFT_pred", "REVEL_score"]
+        result = parse_annotation_completeness(lines, fields)
+        assert result["ANN"]["total"] == 2
+        assert result["ANN"]["annotated"] == 1
+        assert result["ANN"]["rate"] == 0.5
+        assert result["SIFT_pred"]["annotated"] == 1
+        assert result["REVEL_score"]["annotated"] == 1
+
+    def test_empty_input(self):
+        result = parse_annotation_completeness([], ["ANN", "SIFT_pred"])
+        assert result["ANN"]["total"] == 0
+        assert result["ANN"]["annotated"] == 0
+        assert result["ANN"]["rate"] == 0.0
+
+    def test_all_missing(self):
+        lines = ["chr1\t100\t.\t.\n", "chr1\t200\t.\t.\n"]
+        fields = ["ANN", "SIFT_pred"]
+        result = parse_annotation_completeness(lines, fields)
+        assert result["ANN"]["annotated"] == 0
+        assert result["SIFT_pred"]["annotated"] == 0
+        assert result["ANN"]["rate"] == 0.0
+
+    def test_single_field(self):
+        lines = [
+            "chr1\t100\tA|missense\n",
+            "chr1\t200\t.\n",
+            "chr1\t300\tB|stop\n",
+        ]
+        fields = ["ANN"]
+        result = parse_annotation_completeness(lines, fields)
+        assert result["ANN"]["total"] == 3
+        assert result["ANN"]["annotated"] == 2
+        assert result["ANN"]["rate"] == round(2 / 3, 4)
+
+
+class TestParseSnpsiftTstv:
+    def test_multi_sample(self):
+        output = (
+            "Sample        : 1       2       Total\n"
+            "Transitions   : 150488  160000  310488\n"
+            "Transversions : 70878   80000   150878\n"
+            "Ts/Tv         : 2.123   2.000   2.058\n"
+        )
+        result = parse_snpsift_tstv(output)
+        assert result["Transitions"] == "310488"
+        assert result["Transversions"] == "150878"
+        assert result["Ts/Tv"] == "2.058"
+
+    def test_single_sample(self):
+        output = (
+            "Sample        : 1       Total\n"
+            "Transitions   : 150488  150488\n"
+            "Transversions : 70878   70878\n"
+            "Ts/Tv         : 2.123   2.123\n"
+        )
+        result = parse_snpsift_tstv(output)
+        assert result["Transitions"] == "150488"
+        assert result["Transversions"] == "70878"
+        assert result["Ts/Tv"] == "2.123"
+
+    def test_empty_input(self):
+        result = parse_snpsift_tstv("")
+        assert result == {}
+
+    def test_skips_sample_row(self):
+        output = (
+            "Sample        : 1       Total\n"
+            "Transitions   : 100     100\n"
+        )
+        result = parse_snpsift_tstv(output)
+        assert "Sample" not in result
+        assert result["Transitions"] == "100"

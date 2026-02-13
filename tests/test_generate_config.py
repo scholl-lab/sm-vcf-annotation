@@ -2,6 +2,7 @@
 
 import os
 import sys
+import textwrap
 
 import pytest
 
@@ -9,10 +10,18 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 from generate_config import (
+    DEFAULT_CANONICAL_CONTIGS_CHR,
+    DEFAULT_CANONICAL_CONTIGS_NOCHR,
     build_samples_dataframe,
+    detect_genome_build,
+    discover_dbnsfp,
+    discover_extra_annotations,
+    discover_reference_data,
+    discover_sibling_config,
     discover_vcf_files,
     format_size,
     generate_config_template,
+    parse_canonical_contigs,
     write_samples_tsv,
 )
 
@@ -103,6 +112,306 @@ class TestWriteSamplesTsv:
             write_samples_tsv(df, output_path=out)
 
 
+class TestDetectGenomeBuild:
+    def test_grch38_default(self):
+        assert detect_genome_build("genome.fa") == "GRCh38"
+
+    def test_grch38_explicit(self):
+        assert detect_genome_build("GRCh38.p14.fna") == "GRCh38"
+
+    def test_grch37_from_name(self):
+        assert detect_genome_build("GRCh37.p13.fna") == "GRCh37"
+
+    def test_hg19(self):
+        assert detect_genome_build("hg19.fa") == "GRCh37"
+
+    def test_hs37(self):
+        assert detect_genome_build("hs37d5.fa") == "GRCh37"
+
+    def test_b37(self):
+        assert detect_genome_build("b37.fa") == "GRCh37"
+
+    def test_grch37_in_path(self):
+        assert detect_genome_build("/ref/GRCh37/genome.fa") == "GRCh37"
+
+    def test_case_insensitive(self):
+        assert detect_genome_build("GRCH37.fa") == "GRCh37"
+        assert detect_genome_build("HG19.fa") == "GRCh37"
+
+
+class TestDiscoverReferenceData:
+    def test_finds_genome_in_explicit_dir(self, tmp_path):
+        ref_dir = tmp_path / "ref"
+        ref_dir.mkdir()
+        genome = ref_dir / "GRCh38.p14.fna"
+        genome.write_text(">chr1\nACGT\n")
+        fai = ref_dir / "GRCh38.p14.fna.fai"
+        fai.write_text("chr1\t4\t6\t4\t5\n")
+
+        result = discover_reference_data(ref_dir=ref_dir, project_root=tmp_path)
+        assert result["genome"] == str(genome)
+        assert result["build"] == "GRCh38"
+
+    def test_finds_genome_in_search_dir(self, tmp_path):
+        # Create resources/ref/GRCh38 relative to project root
+        ref_dir = tmp_path / "resources" / "ref" / "GRCh38"
+        ref_dir.mkdir(parents=True)
+        genome = ref_dir / "genome.fa"
+        genome.write_text(">chr1\nACGT\n")
+
+        result = discover_reference_data(project_root=tmp_path)
+        assert result["genome"] == str(genome)
+
+    def test_prefers_indexed_genome(self, tmp_path):
+        ref_dir = tmp_path / "ref"
+        ref_dir.mkdir()
+        # Unindexed
+        (ref_dir / "aaa.fa").write_text(">chr1\nACGT\n")
+        # Indexed
+        indexed = ref_dir / "zzz.fa"
+        indexed.write_text(">chr1\nACGT\n")
+        (ref_dir / "zzz.fa.fai").write_text("chr1\t4\n")
+
+        result = discover_reference_data(ref_dir=ref_dir, project_root=tmp_path)
+        assert result["genome"] == str(indexed)
+
+    def test_finds_dict_file(self, tmp_path):
+        ref_dir = tmp_path / "ref"
+        ref_dir.mkdir()
+        genome = ref_dir / "genome.fa"
+        genome.write_text(">chr1\nACGT\n")
+        dict_file = ref_dir / "genome.dict"
+        dict_file.write_text("@HD\tVN:1.6\n@SQ\tSN:chr1\tLN:248956422\n")
+
+        result = discover_reference_data(ref_dir=ref_dir, project_root=tmp_path)
+        assert result["dict"] == str(dict_file)
+
+    def test_no_genome_found(self, tmp_path):
+        result = discover_reference_data(project_root=tmp_path)
+        assert result["genome"] is None
+        assert result["dict"] is None
+        assert result["build"] == "GRCh38"
+
+    def test_search_log_populated(self, tmp_path):
+        result = discover_reference_data(project_root=tmp_path)
+        assert len(result["search_log"]) > 0
+
+    def test_detects_grch37_from_path(self, tmp_path):
+        ref_dir = tmp_path / "resources" / "ref" / "GRCh37"
+        ref_dir.mkdir(parents=True)
+        genome = ref_dir / "hs37d5.fa"
+        genome.write_text(">1\nACGT\n")
+
+        result = discover_reference_data(project_root=tmp_path)
+        assert result["build"] == "GRCh37"
+
+
+class TestDiscoverDbnsfp:
+    def test_finds_dbnsfp_matching_build(self, tmp_path):
+        db_dir = tmp_path / "dbnsfp"
+        db_dir.mkdir()
+        db_file = db_dir / "dbNSFP4.9a_grch38.gz"
+        db_file.write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+
+        result = discover_dbnsfp(dbnsfp_dir=db_dir, project_root=tmp_path, build="GRCh38")
+        assert result["path"] == str(db_file)
+
+    def test_finds_dbnsfp_in_search_dirs(self, tmp_path):
+        db_dir = tmp_path / "resources" / "dbnsfp"
+        db_dir.mkdir(parents=True)
+        db_file = db_dir / "dbNSFP4.9a_grch37.gz"
+        db_file.write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+
+        result = discover_dbnsfp(project_root=tmp_path, build="GRCh37")
+        assert result["path"] == str(db_file)
+
+    def test_no_match_wrong_build(self, tmp_path):
+        db_dir = tmp_path / "dbnsfp"
+        db_dir.mkdir()
+        # grch37 file but searching for grch38
+        (db_dir / "dbNSFP4.9a_grch37.gz").write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+
+        result = discover_dbnsfp(dbnsfp_dir=db_dir, project_root=tmp_path, build="GRCh38")
+        assert result["path"] is None
+
+    def test_no_dbnsfp_found(self, tmp_path):
+        result = discover_dbnsfp(project_root=tmp_path, build="GRCh38")
+        assert result["path"] is None
+        assert len(result["search_log"]) > 0
+
+    def test_search_log_tracks_dirs(self, tmp_path):
+        result = discover_dbnsfp(project_root=tmp_path, build="GRCh38")
+        assert any("not found" in msg or "No dbNSFP" in msg for msg in result["search_log"])
+
+
+class TestDiscoverExtraAnnotations:
+    def test_finds_known_annotations(self, tmp_path):
+        ann_dir = tmp_path / "annotation"
+        ann_dir.mkdir()
+        clinvar = ann_dir / "clinvar_20230101.vcf.gz"
+        clinvar.write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+
+        result = discover_extra_annotations(
+            annotation_dir=ann_dir, project_root=tmp_path, build="GRCh38"
+        )
+        found_names = [a["name"] for a in result["annotations"]]
+        assert "clinvar" in found_names
+
+    def test_finds_multiple_annotations(self, tmp_path):
+        ann_dir = tmp_path / "annotation"
+        ann_dir.mkdir()
+        (ann_dir / "clinvar.vcf.gz").write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+        (ann_dir / "HGMD_Pro.vcf.gz").write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+
+        result = discover_extra_annotations(
+            annotation_dir=ann_dir, project_root=tmp_path, build="GRCh38"
+        )
+        found_names = {a["name"] for a in result["annotations"]}
+        assert "clinvar" in found_names
+        assert "hgmd" in found_names
+
+    def test_no_annotations_found(self, tmp_path):
+        result = discover_extra_annotations(project_root=tmp_path, build="GRCh38")
+        assert result["annotations"] == []
+
+    def test_annotations_have_required_keys(self, tmp_path):
+        ann_dir = tmp_path / "annotation"
+        ann_dir.mkdir()
+        (ann_dir / "clinvar.vcf.gz").write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+
+        result = discover_extra_annotations(
+            annotation_dir=ann_dir, project_root=tmp_path, build="GRCh38"
+        )
+        for ann in result["annotations"]:
+            assert "name" in ann
+            assert "vcf_file" in ann
+            assert "info_field" in ann
+            assert "annotation_prefix" in ann
+
+    def test_finds_in_subdirectories(self, tmp_path):
+        ann_dir = tmp_path / "annotation" / "hg38"
+        ann_dir.mkdir(parents=True)
+        (ann_dir / "dbscSNV1.1_hg38.vcf.gz").write_bytes(b"\x1f\x8b" + b"\x00" * 10)
+
+        result = discover_extra_annotations(
+            annotation_dir=tmp_path / "annotation",
+            project_root=tmp_path,
+            build="GRCh38",
+        )
+        found_names = [a["name"] for a in result["annotations"]]
+        assert "dbscSNV" in found_names
+
+
+class TestParseCanonicalContigs:
+    def test_parse_dict_with_chr_prefix(self, tmp_path):
+        dict_file = tmp_path / "genome.dict"
+        lines = ["@HD\tVN:1.6\n"]
+        for c in DEFAULT_CANONICAL_CONTIGS_CHR:
+            lines.append(f"@SQ\tSN:{c}\tLN:1000\n")
+        # Add non-canonical
+        lines.append("@SQ\tSN:chrM\tLN:16569\n")
+        lines.append("@SQ\tSN:chr1_random\tLN:500\n")
+        dict_file.write_text("".join(lines))
+
+        contigs = parse_canonical_contigs(str(dict_file))
+        assert contigs == DEFAULT_CANONICAL_CONTIGS_CHR
+        assert "chrM" not in contigs
+
+    def test_parse_dict_without_chr_prefix(self, tmp_path):
+        dict_file = tmp_path / "genome.dict"
+        lines = ["@HD\tVN:1.6\n"]
+        for c in DEFAULT_CANONICAL_CONTIGS_NOCHR:
+            lines.append(f"@SQ\tSN:{c}\tLN:1000\n")
+        lines.append("@SQ\tSN:MT\tLN:16569\n")
+        dict_file.write_text("".join(lines))
+
+        contigs = parse_canonical_contigs(str(dict_file), build="GRCh37")
+        assert contigs == DEFAULT_CANONICAL_CONTIGS_NOCHR
+        assert "MT" not in contigs
+
+    def test_default_contigs_grch38(self):
+        contigs = parse_canonical_contigs(None, build="GRCh38")
+        assert contigs == DEFAULT_CANONICAL_CONTIGS_CHR
+
+    def test_default_contigs_grch37(self):
+        contigs = parse_canonical_contigs(None, build="GRCh37")
+        assert contigs == DEFAULT_CANONICAL_CONTIGS_NOCHR
+
+    def test_missing_file_returns_defaults(self):
+        contigs = parse_canonical_contigs("/nonexistent/genome.dict", build="GRCh38")
+        assert contigs == DEFAULT_CANONICAL_CONTIGS_CHR
+
+    def test_empty_dict_returns_defaults(self, tmp_path):
+        dict_file = tmp_path / "empty.dict"
+        dict_file.write_text("")
+        contigs = parse_canonical_contigs(str(dict_file), build="GRCh38")
+        assert contigs == DEFAULT_CANONICAL_CONTIGS_CHR
+
+    def test_preserves_order_from_dict(self, tmp_path):
+        dict_file = tmp_path / "genome.dict"
+        # Write in reverse order
+        lines = ["@HD\tVN:1.6\n"]
+        for c in reversed(DEFAULT_CANONICAL_CONTIGS_CHR):
+            lines.append(f"@SQ\tSN:{c}\tLN:1000\n")
+        dict_file.write_text("".join(lines))
+
+        contigs = parse_canonical_contigs(str(dict_file))
+        # Order should match dict file (reversed)
+        assert contigs == list(reversed(DEFAULT_CANONICAL_CONTIGS_CHR))
+
+
+class TestDiscoverSiblingConfig:
+    def test_no_sibling(self, tmp_path):
+        result = discover_sibling_config(project_root=tmp_path)
+        assert result["found"] is False
+        assert result["vcf_folder"] is None
+
+    def test_finds_sibling_config(self, tmp_path):
+        # Create sibling sm-calling config
+        sibling_dir = tmp_path / "sm-calling" / "config"
+        sibling_dir.mkdir(parents=True)
+        config = sibling_dir / "config.yaml"
+        config.write_text(
+            textwrap.dedent("""\
+            ref:
+              genome: "/ref/GRCh38.fa"
+            paths:
+              output_folder: "results/variant_calls"
+            """)
+        )
+
+        # Project root is a sibling directory
+        project_root = tmp_path / "sm-vcf-annotation"
+        project_root.mkdir()
+
+        result = discover_sibling_config(project_root=project_root)
+        assert result["found"] is True
+        assert result["ref_genome"] == "/ref/GRCh38.fa"
+
+    def test_finds_vcf_folder_from_sibling(self, tmp_path):
+        # Create sibling sm-calling with output directories
+        sibling_root = tmp_path / "sm-calling"
+        sibling_config_dir = sibling_root / "config"
+        sibling_config_dir.mkdir(parents=True)
+        (sibling_config_dir / "config.yaml").write_text(
+            textwrap.dedent("""\
+            paths:
+              output_folder: "results/variant_calls"
+            """)
+        )
+        # Create the filtered VCFs directory
+        vcf_dir = sibling_root / "results" / "variant_calls" / "mutect2" / "filtered_vcfs"
+        vcf_dir.mkdir(parents=True)
+
+        project_root = tmp_path / "sm-vcf-annotation"
+        project_root.mkdir()
+
+        result = discover_sibling_config(project_root=project_root)
+        assert result["found"] is True
+        assert result["vcf_folder"] is not None
+        assert "filtered_vcfs" in result["vcf_folder"]
+
+
 class TestGenerateConfigTemplate:
     def test_dry_run(self):
         content = generate_config_template(dry_run=True)
@@ -119,3 +428,77 @@ class TestGenerateConfigTemplate:
         generate_config_template(output_path=out)
         assert out.exists()
         assert "snpeff:" in out.read_text()
+
+    def test_no_overwrite(self, tmp_path):
+        out = tmp_path / "config.yaml"
+        out.write_text("existing")
+        with pytest.raises(FileExistsError):
+            generate_config_template(output_path=out)
+
+    def test_ref_data_populates_genome(self):
+        ref_data = {
+            "genome": "/ref/GRCh38.fa",
+            "dict": "/ref/GRCh38.dict",
+            "build": "GRCh38",
+        }
+        content = generate_config_template(ref_data=ref_data, dry_run=True)
+        assert "/ref/GRCh38.fa" in content
+        assert "/ref/GRCh38.dict" in content
+        assert "GRCh38.p14" in content
+
+    def test_grch37_build_sets_snpeff_db(self):
+        ref_data = {
+            "genome": "/ref/GRCh37.fa",
+            "dict": "/ref/GRCh37.dict",
+            "build": "GRCh37",
+        }
+        content = generate_config_template(ref_data=ref_data, dry_run=True)
+        assert "GRCh37.p13" in content
+
+    def test_dbnsfp_data_populates_path(self):
+        dbnsfp_data = {"path": "/db/dbNSFP4.9a_grch38.gz"}
+        content = generate_config_template(dbnsfp_data=dbnsfp_data, dry_run=True)
+        assert "/db/dbNSFP4.9a_grch38.gz" in content
+
+    def test_extra_annotations_in_output(self):
+        extra = [
+            {
+                "name": "clinvar",
+                "vcf_file": "/ann/clinvar.vcf.gz",
+                "info_field": "CLNSIG",
+                "annotation_prefix": "ClinVar_",
+            }
+        ]
+        content = generate_config_template(extra_annotations=extra, dry_run=True)
+        assert "/ann/clinvar.vcf.gz" in content
+        assert "CLNSIG" in content
+        assert "ClinVar_" in content
+
+    def test_scatter_config_in_output(self):
+        scatter = {
+            "mode": "interval",
+            "count": 50,
+            "canonical_contigs": ["chr1", "chr2", "chr3"],
+        }
+        content = generate_config_template(scatter_config=scatter, dry_run=True)
+        assert 'mode: "interval"' in content
+        assert "count: 50" in content
+        assert '"chr1"' in content
+        assert '"chr2"' in content
+        assert '"chr3"' in content
+
+    def test_edit_me_placeholders_when_no_data(self):
+        content = generate_config_template(dry_run=True)
+        assert "EDIT_ME:" in content
+
+    def test_no_edit_me_when_data_provided(self):
+        ref_data = {
+            "genome": "/ref/genome.fa",
+            "dict": "/ref/genome.dict",
+            "build": "GRCh38",
+        }
+        dbnsfp_data = {"path": "/db/dbNSFP.gz"}
+        content = generate_config_template(
+            ref_data=ref_data, dbnsfp_data=dbnsfp_data, dry_run=True
+        )
+        assert "EDIT_ME:" not in content

@@ -31,6 +31,7 @@ set-threads:
   scatter_intervals_by_ns: 1
   split_intervals: 4
   scatter_vcf: 2
+  scatter_vcf_chromosome: 2
   concatenate_annotated_vcfs: 4
 
 # Per-rule resource overrides
@@ -64,6 +65,10 @@ set-resources:
   scatter_vcf:
     mem_mb: 8192
     runtime: 1440
+    cpus_per_task: 2
+  scatter_vcf_chromosome:
+    mem_mb: 4000
+    runtime: 720
     cpus_per_task: 2
   concatenate_annotated_vcfs:
     mem_mb: 8192

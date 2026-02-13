@@ -23,7 +23,7 @@ validate(samples_df, "schemas/samples.schema.yaml")
 # -- Wildcard constraints ----------------------------------------------------
 wildcard_constraints:
     sample="[A-Za-z0-9_.-]+",
-    scatter_unit="(all|[0-9]{4}-scattered)",
+    scatter_unit="(all|[0-9]{4}-scattered|chr[0-9XY]+|[0-9XY]+)",
     step="[0-9]+",
 
 

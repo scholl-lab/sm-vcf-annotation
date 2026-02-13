@@ -628,3 +628,14 @@ class TestGenerateConfigTemplate:
         assert "LRT_pred" in content
         assert "FATHMM_score" in content
         assert "gnomAD_exomes_AF" in content
+
+    def test_scatter_config_chromosome_mode(self):
+        scatter = {
+            "mode": "chromosome",
+            "count": 100,
+            "canonical_contigs": ["chr1", "chr2", "chrX"],
+        }
+        content = generate_config_template(scatter_config=scatter, dry_run=True)
+        assert 'mode: "chromosome"' in content
+        assert '"chr1"' in content
+        assert '"chrX"' in content

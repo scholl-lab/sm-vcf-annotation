@@ -1013,15 +1013,18 @@ def _interactive_wizard() -> None:
     print()
 
     # --- Step 8: Scatter mode ---
-    scatter_mode = _prompt_choice("Scatter mode", choices=["none", "interval"], default="none")
+    scatter_mode = _prompt_choice(
+        "Scatter mode", choices=["none", "chromosome", "interval"], default="none"
+    )
     scatter_config: dict[str, Any] = {"mode": scatter_mode, "count": 100, "canonical_contigs": []}
 
-    if scatter_mode == "interval":
-        count_str = _prompt("  Number of scatter intervals", default="100")
-        try:
-            scatter_config["count"] = int(count_str)
-        except ValueError:
-            print("  Invalid number, using default 100.")
+    if scatter_mode in ("chromosome", "interval"):
+        if scatter_mode == "interval":
+            count_str = _prompt("  Number of scatter intervals", default="100")
+            try:
+                scatter_config["count"] = int(count_str)
+            except ValueError:
+                print("  Invalid number, using default 100.")
 
         # Parse canonical contigs from .dict or use defaults
         contigs = parse_canonical_contigs(ref_data.get("dict"), build)
@@ -1131,7 +1134,7 @@ def main() -> None:
         "--scatter-mode",
         type=str,
         default="none",
-        choices=["none", "interval"],
+        choices=["none", "chromosome", "interval"],
         help="Scatter mode (default: none).",
     )
     parser.add_argument(
@@ -1209,7 +1212,7 @@ def main() -> None:
         "count": args.scatter_count,
         "canonical_contigs": [],
     }
-    if args.scatter_mode == "interval":
+    if args.scatter_mode in ("chromosome", "interval"):
         scatter_config["canonical_contigs"] = parse_canonical_contigs(ref_data.get("dict"), build)
 
     # Build samples

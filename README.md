@@ -107,7 +107,7 @@ The wizard will:
 4. Detect genome build (GRCh38/GRCh37) from the reference filename
 5. Auto-scan for dbNSFP database matching the detected build
 6. Auto-scan for known extra annotation VCFs (ClinVar, HGMD, COSMIC, dbscSNV, SPIDEX)
-7. Configure scatter mode (none/interval) with canonical contigs from `.dict` file
+7. Configure scatter mode (none/chromosome/interval) with canonical contigs from `.dict` file
 8. Show summary and confirm before writing
 
 Any databases not found automatically get `EDIT_ME:` placeholders in the generated config.
@@ -132,7 +132,12 @@ python scripts/generate_config.py \
     --vcf-folder results/variant_calls/ \
     --genome-build GRCh37
 
-# Enable scatter mode
+# Enable chromosome scatter mode (simpler, ~24 parallel units)
+python scripts/generate_config.py \
+    --vcf-folder results/variant_calls/ \
+    --scatter-mode chromosome
+
+# Enable interval scatter mode (GATK-based, configurable count)
 python scripts/generate_config.py \
     --vcf-folder results/variant_calls/ \
     --scatter-mode interval --scatter-count 50
@@ -154,7 +159,7 @@ python scripts/generate_config.py --vcf-folder /path/to/vcfs --overwrite
 | `--annotation-dir PATH` | *(auto-scan)* | Extra annotation VCFs directory |
 | `--genome-build` | *(auto-detect)* | `GRCh37` or `GRCh38` |
 | `--output-dir PATH` | *(inferred)* | Pipeline output directory (inferred from `--vcf-folder`) |
-| `--scatter-mode` | `none` | `none` or `interval` |
+| `--scatter-mode` | `none` | `none`, `chromosome`, or `interval` |
 | `--scatter-count` | `100` | Number of scatter intervals |
 | `--dry-run` | off | Preview without writing |
 | `--overwrite` | off | Overwrite existing config files |
@@ -196,20 +201,20 @@ snpsift:
   dbnsfp_fields: "aaref,aaalt,aapos,SIFT_pred,..."  # auto-selected for dbNSFP v4 or v5
 
 scatter:
-  mode: "none"                         # "none" or "interval"
+  mode: "none"                         # "none", "chromosome", or "interval"
   count: 100                           # intervals (for interval mode)
-  canonical_contigs: []                # contigs to include when scattering
+  canonical_contigs: []                # contigs to include (chromosome + interval modes)
 
 extra_annotations: []                  # optional step-wise SnpSift annotate
 ```
 
 | Section | Key settings |
 |---------|-------------|
-| `ref` | Reference genome path and dictionary (required for scatter mode) |
+| `ref` | Reference genome path and dictionary (required for chromosome/interval scatter) |
 | `paths` | Input VCF folder, output folder, samples TSV path |
 | `snpeff` | snpEff database name and extra flags |
 | `snpsift` | dbNSFP database path and annotation fields (version-aware: v4 vs v5) |
-| `scatter` | Parallelization mode (`"none"` or `"interval"`) and interval count |
+| `scatter` | Parallelization mode (`"none"`, `"chromosome"`, or `"interval"`) and interval count |
 | `extra_annotations` | Optional list of extra VCF annotation steps |
 
 See [`config/README.md`](config/README.md) for full field reference.
@@ -347,12 +352,12 @@ workflow/Snakefile
     ├── rules/helpers.py       Pure Python functions (unit-testable)
     ├── rules/snpeff.smk       snpEff variant annotation
     ├── rules/snpsift.smk      SnpSift varType, dbNSFP, extra annotations, finalize
-    └── rules/scatter.smk      Conditional scatter/gather (GATK-based)
+    └── rules/scatter.smk      Conditional scatter/gather (chromosome or GATK-based)
 ```
 
 ### Annotation DAG
 
-Per sample (per scatter interval if `scatter.mode: "interval"`):
+Per sample (per scatter unit if `scatter.mode` is `"chromosome"` or `"interval"`):
 
 ```
 Input VCF
@@ -362,6 +367,16 @@ Input VCF
     ├── annotation_step (1..N, if extra_annotations defined) [temp]
     ├── finalize_annotation                                  [temp]
     └── rename_no_scatter / concatenate_annotated_vcfs       → final .annotated.vcf.gz
+```
+
+### Scatter/Gather DAG (mode: "chromosome")
+
+Requires tabix-indexed input VCFs (`.vcf.gz` + `.tbi`).
+
+```
+Input VCF (.vcf.gz + .tbi)
+    └── scatter_vcf_chromosome (bcftools view -r, per sample x chromosome) [temp]
+        └── annotation pipeline (per chromosome) → concatenate → final VCF
 ```
 
 ### Scatter/Gather DAG (mode: "interval")

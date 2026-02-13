@@ -22,6 +22,52 @@ if SCATTER_MODE == "none":
             echo "Done at: $(date)" >> {log}
             """
 
+elif SCATTER_MODE == "chromosome":
+
+    rule scatter_vcf_chromosome:
+        input:
+            vcf_file=get_input_vcf,
+        output:
+            temp(os.path.join(ANNOTATION_DIR, "{sample}.{scatter_unit}.vcf.gz")),
+        log:
+            os.path.join(LOG_DIR, "scatter_vcf_chromosome.{sample}.{scatter_unit}.log"),
+        conda:
+            "../envs/snpeff.yaml"
+        shell:
+            r"""
+            echo "Starting scatter_vcf_chromosome at: $(date)" >> {log}
+            bcftools view -r {wildcards.scatter_unit} {input.vcf_file} \
+                -Oz --threads {threads} -o {output} 2>> {log}
+            echo "Finished scatter_vcf_chromosome at: $(date)" >> {log}
+            """
+
+    rule concatenate_annotated_vcfs:
+        # Identical to interval mode's concatenate rule — duplicated because
+        # Snakemake if/elif means only one branch's rules are defined.
+        input:
+            lambda wc: expand(
+                os.path.join(
+                    ANNOTATION_DIR,
+                    "{sample}.{scatter_unit}.annotated.vcf.gz",
+                ),
+                sample=[wc.sample],
+                scatter_unit=SCATTER_UNITS,
+            ),
+        output:
+            os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
+        log:
+            os.path.join(LOG_DIR, "concatenate_annotated_vcfs.{sample}.log"),
+        conda:
+            "../envs/snpeff.yaml"
+        shell:
+            r"""
+            echo "Starting concatenate_annotated_vcfs at: $(date)" >> {log}
+            bcftools concat -Oz --threads {threads} {input} \
+                -o {output} 2>> {log}
+            bcftools index --threads {threads} -t {output} 2>> {log}
+            echo "Finished concatenate_annotated_vcfs at: $(date)" >> {log}
+            """
+
 elif SCATTER_MODE == "interval":
 
     INTERVALS_LIST = os.path.join(INTERVALS_DIR, "intervals.interval_list")

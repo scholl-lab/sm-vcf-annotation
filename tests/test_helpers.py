@@ -59,6 +59,36 @@ class TestGetScatterUnits:
         assert result[0] == "0000-scattered"
         assert result[99] == "0099-scattered"
 
+    def test_chromosome_mode(self):
+        chroms = ["chr1", "chr2", "chr3", "chrX", "chrY"]
+        result = get_scatter_units("chromosome", chromosomes=chroms)
+        assert result == chroms
+
+    def test_chromosome_mode_no_chromosomes_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="non-empty"):
+            get_scatter_units("chromosome")
+
+    def test_chromosome_mode_empty_list_raises(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="non-empty"):
+            get_scatter_units("chromosome", chromosomes=[])
+
+    def test_chromosome_mode_grch37_contigs(self):
+        contigs = ["1", "2", "3", "X", "Y"]
+        result = get_scatter_units("chromosome", chromosomes=contigs)
+        assert result == contigs
+
+    def test_interval_mode_unaffected_by_chromosomes(self):
+        result = get_scatter_units("interval", chromosomes=["chr1"], scatter_count=3)
+        assert result == ["0000-scattered", "0001-scattered", "0002-scattered"]
+
+    def test_none_mode_unaffected_by_chromosomes(self):
+        result = get_scatter_units("none", chromosomes=["chr1"])
+        assert result == ["all"]
+
 
 class TestGetVcfPath:
     def test_resolves_path(self, samples_df):
@@ -91,3 +121,11 @@ class TestAnnotationStepVcf:
     def test_step_two_with_scatter(self):
         result = annotation_step_vcf("/out/ann", "SampleA", 2, "0005-scattered")
         assert result == os.path.join("/out/ann", "SampleA.0005-scattered.ann.step2.vcf.gz")
+
+    def test_step_zero_with_chromosome(self):
+        result = annotation_step_vcf("/out/ann", "SampleA", 0, "chr1")
+        assert result == os.path.join("/out/ann", "SampleA.chr1.ann.dbnsfp.vcf.gz")
+
+    def test_step_one_with_chromosome(self):
+        result = annotation_step_vcf("/out/ann", "SampleA", 1, "chr1")
+        assert result == os.path.join("/out/ann", "SampleA.chr1.ann.step1.vcf.gz")

@@ -20,12 +20,23 @@ def get_samples(samples_df: pd.DataFrame) -> list[str]:
     return sorted(samples_df["sample"].unique().tolist())
 
 
-def get_scatter_units(mode: str, scatter_count: int = 100) -> list[str]:
+def get_scatter_units(
+    mode: str,
+    chromosomes: list[str] | None = None,
+    scatter_count: int = 100,
+) -> list[str]:
     """Return the list of scatter units based on mode.
 
+    - mode="chromosome": returns the chromosome list (e.g. ["chr1", ..., "chrY"])
     - mode="interval": returns ["0000-scattered", "0001-scattered", ...]
     - mode="none": returns ["all"]
     """
+    if mode == "chromosome":
+        if not chromosomes:
+            raise ValueError(
+                "get_scatter_units(mode='chromosome') requires a non-empty 'chromosomes' list."
+            )
+        return chromosomes
     if mode == "interval":
         return [f"{i:04d}-scattered" for i in range(scatter_count)]
     return ["all"]

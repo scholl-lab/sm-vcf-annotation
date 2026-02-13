@@ -48,6 +48,7 @@ rule snpsift_tstv:
         if result.returncode != 0:
             with open(str(log), "a") as lf:
                 lf.write(f"SnpSift tstv stderr: {result.stderr}\n")
+            raise RuntimeError("SnpSift tstv failed; see log for details.")
         tstv = parse_snpsift_tstv(result.stdout)
         with open(str(output.tstv), "w") as fh:
             fh.write("# id: 'snpsift_tstv'\n")
@@ -92,17 +93,20 @@ rule annotation_completeness:
         shell("echo 'Starting annotation_completeness at: $(date)' > {log}")
         field_fmt = "\t".join([f"%{f}" for f in params.fields])
         query_cmd = f"bcftools query -f '%CHROM\\t%POS\\t{field_fmt}\\n' {input.vcf}"
-        result = subprocess.run(
+        proc = subprocess.Popen(
             query_cmd,
             shell=True,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
         )
-        if result.returncode != 0:
+        stats = parse_annotation_completeness(proc.stdout, list(params.fields))
+        stderr = proc.stderr.read()
+        returncode = proc.wait()
+        if returncode != 0:
             with open(str(log), "a") as lf:
-                lf.write(f"bcftools query stderr: {result.stderr}\n")
-        query_output = result.stdout
-        stats = parse_annotation_completeness(query_output, list(params.fields))
+                lf.write(f"bcftools query stderr: {stderr}\n")
+            raise RuntimeError("bcftools query failed; see log for details.")
 
         with open(str(output.tsv), "w") as fh:
             fh.write("# id: 'annotation_completeness'\n")

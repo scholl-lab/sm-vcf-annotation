@@ -135,9 +135,12 @@ class TestAnnotationStepVcf:
 
 class TestParseAnnotationCompleteness:
     def test_all_annotated(self):
-        query = "chr1\t100\tA|missense\tD\t0.95\nchr1\t200\tA|synonymous\tT\t0.5\n"
+        lines = [
+            "chr1\t100\tA|missense\tD\t0.95\n",
+            "chr1\t200\tA|synonymous\tT\t0.5\n",
+        ]
         fields = ["ANN", "SIFT_pred", "REVEL_score"]
-        result = parse_annotation_completeness(query, fields)
+        result = parse_annotation_completeness(lines, fields)
         assert result["ANN"]["total"] == 2
         assert result["ANN"]["annotated"] == 2
         assert result["ANN"]["rate"] == 1.0
@@ -145,9 +148,12 @@ class TestParseAnnotationCompleteness:
         assert result["REVEL_score"]["annotated"] == 2
 
     def test_partial_annotation(self):
-        query = "chr1\t100\tA|missense\t.\t0.95\nchr1\t200\t.\tT\t.\n"
+        lines = [
+            "chr1\t100\tA|missense\t.\t0.95\n",
+            "chr1\t200\t.\tT\t.\n",
+        ]
         fields = ["ANN", "SIFT_pred", "REVEL_score"]
-        result = parse_annotation_completeness(query, fields)
+        result = parse_annotation_completeness(lines, fields)
         assert result["ANN"]["total"] == 2
         assert result["ANN"]["annotated"] == 1
         assert result["ANN"]["rate"] == 0.5
@@ -155,23 +161,27 @@ class TestParseAnnotationCompleteness:
         assert result["REVEL_score"]["annotated"] == 1
 
     def test_empty_input(self):
-        result = parse_annotation_completeness("", ["ANN", "SIFT_pred"])
+        result = parse_annotation_completeness([], ["ANN", "SIFT_pred"])
         assert result["ANN"]["total"] == 0
         assert result["ANN"]["annotated"] == 0
         assert result["ANN"]["rate"] == 0.0
 
     def test_all_missing(self):
-        query = "chr1\t100\t.\t.\nchr1\t200\t.\t.\n"
+        lines = ["chr1\t100\t.\t.\n", "chr1\t200\t.\t.\n"]
         fields = ["ANN", "SIFT_pred"]
-        result = parse_annotation_completeness(query, fields)
+        result = parse_annotation_completeness(lines, fields)
         assert result["ANN"]["annotated"] == 0
         assert result["SIFT_pred"]["annotated"] == 0
         assert result["ANN"]["rate"] == 0.0
 
     def test_single_field(self):
-        query = "chr1\t100\tA|missense\nchr1\t200\t.\nchr1\t300\tB|stop\n"
+        lines = [
+            "chr1\t100\tA|missense\n",
+            "chr1\t200\t.\n",
+            "chr1\t300\tB|stop\n",
+        ]
         fields = ["ANN"]
-        result = parse_annotation_completeness(query, fields)
+        result = parse_annotation_completeness(lines, fields)
         assert result["ANN"]["total"] == 3
         assert result["ANN"]["annotated"] == 2
         assert result["ANN"]["rate"] == round(2 / 3, 4)

@@ -4,6 +4,7 @@ All functions are free of Snakemake imports so they can be unit-tested.
 """
 
 import os
+from collections.abc import Iterable
 
 import pandas as pd
 
@@ -50,17 +51,18 @@ def get_vcf_path(sample: str, vcf_folder: str, samples_df: pd.DataFrame) -> str:
 
 
 def parse_annotation_completeness(
-    query_output: str,
+    lines: Iterable[str],
     field_names: list[str],
 ) -> dict[str, dict[str, int | float]]:
     """Parse bcftools query output and compute annotation completeness per field.
 
     Parameters
     ----------
-    query_output:
-        TSV text from ``bcftools query``.  Each line has CHROM, POS, then one
-        column per field in *field_names*.  Missing values are represented by
-        ``"."``.
+    lines:
+        Iterable of TSV lines from ``bcftools query``.  Each line has
+        CHROM, POS, then one column per field in *field_names*.  Missing
+        values are represented by ``"."``.  Accepts a file-like object
+        (for streaming from ``Popen.stdout``) or a list of strings.
     field_names:
         Column names corresponding to positions 2..N in the TSV.
 
@@ -72,7 +74,8 @@ def parse_annotation_completeness(
     stats: dict[str, dict[str, int | float]] = {
         f: {"total": 0, "annotated": 0, "rate": 0.0} for f in field_names
     }
-    for line in query_output.strip().splitlines():
+    for line in lines:
+        line = line.rstrip("\n")
         if not line:
             continue
         cols = line.split("\t")
@@ -101,9 +104,10 @@ def parse_snpsift_tstv(tstv_output: str) -> dict[str, str]:
         Transversions : 70878   70878
         Ts/Tv         : 2.123   2.123
 
-    Returns the *Total* column values keyed by row label (e.g.
-    ``{"Transitions": "150488", "Transversions": "70878", "Ts/Tv": "2.123"}``).
-    If there is no Total column, the first numeric column is used.
+    Returns the last column value for each metric row, keyed by row label
+    (e.g. ``{"Transitions": "150488", "Transversions": "70878", "Ts/Tv": "2.123"}``).
+    When multiple samples are present the last column is *Total*; for a
+    single-sample VCF it is the only value column.
     """
     result: dict[str, str] = {}
     for line in tstv_output.strip().splitlines():

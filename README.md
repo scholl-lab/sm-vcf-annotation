@@ -62,7 +62,7 @@ The pipeline requires:
 | Data | Source | Maps to `config.yaml` |
 |------|--------|-----------------------|
 | **snpEff database** (e.g., GRCh37.p13) | bundled with snpEff | `snpeff.database` |
-| **dbNSFP database** | [dbNSFP downloads](https://sites.google.com/site/jpaborern/dbNSFP) | `snpsift.dbnsfp_db` |
+| **dbNSFP database** (v4.x or v5.x) | [dbNSFP downloads](https://sites.google.com/site/jpaborern/dbNSFP) | `snpsift.dbnsfp_db` |
 | **Reference genome** (for scatter mode) | NCBI/UCSC | `ref.genome`, `ref.dict` |
 
 ### Recommended project layout
@@ -153,6 +153,7 @@ python scripts/generate_config.py --vcf-folder /path/to/vcfs --overwrite
 | `--dbnsfp-dir PATH` | *(auto-scan)* | dbNSFP database directory |
 | `--annotation-dir PATH` | *(auto-scan)* | Extra annotation VCFs directory |
 | `--genome-build` | *(auto-detect)* | `GRCh37` or `GRCh38` |
+| `--output-dir PATH` | *(inferred)* | Pipeline output directory (inferred from `--vcf-folder`) |
 | `--scatter-mode` | `none` | `none` or `interval` |
 | `--scatter-count` | `100` | Number of scatter intervals |
 | `--dry-run` | off | Preview without writing |
@@ -192,7 +193,7 @@ snpeff:
 
 snpsift:
   dbnsfp_db: "dbnsfp/dbNSFP4.9a_grch37.gz"
-  dbnsfp_fields: "aaref,aaalt,aapos,SIFT_pred,..."  # full list in config/config.yaml
+  dbnsfp_fields: "aaref,aaalt,aapos,SIFT_pred,..."  # auto-selected for dbNSFP v4 or v5
 
 scatter:
   mode: "none"                         # "none" or "interval"
@@ -207,7 +208,7 @@ extra_annotations: []                  # optional step-wise SnpSift annotate
 | `ref` | Reference genome path and dictionary (required for scatter mode) |
 | `paths` | Input VCF folder, output folder, samples TSV path |
 | `snpeff` | snpEff database name and extra flags |
-| `snpsift` | dbNSFP database path and annotation fields |
+| `snpsift` | dbNSFP database path and annotation fields (version-aware: v4 vs v5) |
 | `scatter` | Parallelization mode (`"none"` or `"interval"`) and interval count |
 | `extra_annotations` | Optional list of extra VCF annotation steps |
 
@@ -236,7 +237,7 @@ Resource and executor settings are separated into layered profiles:
 |---------|---------|-------------|
 | `profiles/default/` | Per-rule threads, memory, walltime | `--workflow-profile` |
 | `profiles/bih/` | BIH SLURM settings (partition, account) | `--profile` |
-| `profiles/charite/` | Charite SLURM settings (partition overrides) | `--profile` |
+| `profiles/charite/` | Charite SLURM settings (compute partition, 2-day max) | `--profile` |
 | `profiles/local/` | Local execution (4 cores, conda) | `--profile` |
 
 To adjust resources without touching workflow code, edit `profiles/default/config.v8+.yaml`.
@@ -289,7 +290,7 @@ The launcher auto-detects whether you're on BIH HPC or Charite HPC:
 | Cluster | Detection | Behavior |
 |---------|-----------|----------|
 | **BIH HPC** | `/etc/xdg/snakemake/cubi-v1` exists or hostname matches `cubi`/`bihealth` | `--profile profiles/bih` |
-| **Charite HPC** | `/etc/profile.d/conda.sh` exists or hostname matches `charite`/`.sc-` | `--profile profiles/charite`, partition overrides for long jobs |
+| **Charite HPC** | `/etc/profile.d/conda.sh` exists or hostname matches `charite`/`.sc-` | `--profile profiles/charite` (compute partition, 2-day max walltime) |
 | **Other/local** | Fallback if neither BIH nor Charite is detected | `--profile profiles/local` |
 
 ### Usage examples

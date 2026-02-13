@@ -10,10 +10,13 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 
 from generate_config import (
+    DBNSFP_FIELDS_V4,
+    DBNSFP_FIELDS_V5,
     DEFAULT_CANONICAL_CONTIGS_CHR,
     DEFAULT_CANONICAL_CONTIGS_NOCHR,
     _infer_output_folder,
     build_samples_dataframe,
+    detect_dbnsfp_version,
     detect_genome_build,
     discover_dbnsfp,
     discover_extra_annotations,
@@ -22,6 +25,7 @@ from generate_config import (
     discover_vcf_files,
     format_size,
     generate_config_template,
+    get_dbnsfp_fields,
     parse_canonical_contigs,
     write_samples_tsv,
 )
@@ -142,6 +146,63 @@ class TestInferOutputFolder:
         # Ensure no backslashes in output
         result = _infer_output_folder("../results/A5297/variant_calls/mutect2/filtered")
         assert "\\" not in result
+
+
+class TestDetectDbnsfpVersion:
+    def test_version_4_from_filename(self):
+        assert detect_dbnsfp_version("/db/dbNSFP4.9a_grch38.gz") == 4
+
+    def test_version_5_from_filename(self):
+        assert detect_dbnsfp_version("/db/dbNSFP5.2a_grch38.gz") == 5
+
+    def test_version_3_from_filename(self):
+        assert detect_dbnsfp_version("/db/dbNSFP3.5a_grch37.gz") == 3
+
+    def test_none_path_defaults_to_4(self):
+        assert detect_dbnsfp_version(None) == 4
+
+    def test_no_version_in_name_defaults_to_4(self):
+        assert detect_dbnsfp_version("/db/dbNSFP.gz") == 4
+
+    def test_case_insensitive(self):
+        assert detect_dbnsfp_version("/db/DBNSFP5.1_grch38.gz") == 5
+
+    def test_edit_me_placeholder_defaults_to_4(self):
+        assert detect_dbnsfp_version("EDIT_ME: /path/to/dbNSFP4.9a_grch38.gz") == 4
+
+
+class TestGetDbnsfpFields:
+    def test_version_4_returns_v4_fields(self):
+        assert get_dbnsfp_fields(4) == DBNSFP_FIELDS_V4
+
+    def test_version_5_returns_v5_fields(self):
+        assert get_dbnsfp_fields(5) == DBNSFP_FIELDS_V5
+
+    def test_version_3_returns_v4_fields(self):
+        assert get_dbnsfp_fields(3) == DBNSFP_FIELDS_V4
+
+    def test_version_6_returns_v5_fields(self):
+        assert get_dbnsfp_fields(6) == DBNSFP_FIELDS_V5
+
+    def test_v4_contains_lrt(self):
+        assert "LRT_pred" in DBNSFP_FIELDS_V4
+
+    def test_v5_no_lrt(self):
+        assert "LRT_pred" not in DBNSFP_FIELDS_V5
+
+    def test_v4_contains_fathmm(self):
+        assert "FATHMM_score" in DBNSFP_FIELDS_V4
+
+    def test_v5_contains_fathmm_xf(self):
+        assert "fathmm-XF_coding_score" in DBNSFP_FIELDS_V5
+        assert "FATHMM_score" not in DBNSFP_FIELDS_V5
+
+    def test_v4_contains_gnomad_exomes(self):
+        assert "gnomAD_exomes_AF" in DBNSFP_FIELDS_V4
+
+    def test_v5_contains_gnomad41_joint(self):
+        assert "gnomAD4.1_joint_AF" in DBNSFP_FIELDS_V5
+        assert "gnomAD_exomes_AF" not in DBNSFP_FIELDS_V5
 
 
 class TestDetectGenomeBuild:
@@ -553,3 +614,17 @@ class TestGenerateConfigTemplate:
     def test_output_folder_default_fallback(self):
         content = generate_config_template(vcf_folder="results/final", dry_run=True)
         assert "results/annotation" in content
+
+    def test_dbnsfp_v5_fields_used(self):
+        dbnsfp_data = {"path": "/db/dbNSFP5.2a_grch38.gz"}
+        content = generate_config_template(dbnsfp_data=dbnsfp_data, dry_run=True)
+        assert "fathmm-XF_coding_score" in content
+        assert "gnomAD4.1_joint_AF" in content
+        assert "LRT_pred" not in content
+
+    def test_dbnsfp_v4_fields_used(self):
+        dbnsfp_data = {"path": "/db/dbNSFP4.9a_grch38.gz"}
+        content = generate_config_template(dbnsfp_data=dbnsfp_data, dry_run=True)
+        assert "LRT_pred" in content
+        assert "FATHMM_score" in content
+        assert "gnomAD_exomes_AF" in content

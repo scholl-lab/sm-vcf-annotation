@@ -131,6 +131,147 @@ KNOWN_ANNOTATIONS: dict[str, dict[str, str]] = {
 DEFAULT_CANONICAL_CONTIGS_CHR = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
 DEFAULT_CANONICAL_CONTIGS_NOCHR = [str(i) for i in range(1, 23)] + ["X", "Y"]
 
+# dbNSFP version-specific field lists
+# v4.x fields (dbNSFP 4.x series)
+DBNSFP_FIELDS_V4 = ",".join(
+    [
+        "aaref",
+        "aaalt",
+        "aapos",
+        "SIFT_pred",
+        "SIFT4G_score",
+        "Polyphen2_HDIV_pred",
+        "Polyphen2_HVAR_score",
+        "LRT_pred",
+        "MutationTaster_score",
+        "MutationTaster_converted_rankscore",
+        "MutationTaster_pred",
+        "MutationAssessor_score",
+        "MutationAssessor_rankscore",
+        "MutationAssessor_pred",
+        "FATHMM_score",
+        "FATHMM_converted_rankscore",
+        "FATHMM_pred",
+        "PROVEAN_score",
+        "PROVEAN_converted_rankscore",
+        "PROVEAN_pred",
+        "MetaSVM_score",
+        "MetaSVM_rankscore",
+        "MetaSVM_pred",
+        "M-CAP_score",
+        "M-CAP_rankscore",
+        "M-CAP_pred",
+        "REVEL_score",
+        "REVEL_rankscore",
+        "MVP_score",
+        "MVP_rankscore",
+        "MPC_score",
+        "MPC_rankscore",
+        "CADD_raw_rankscore",
+        "CADD_phred",
+        "GERP++_NR",
+        "GERP++_RS",
+        "GERP++_RS_rankscore",
+        "phastCons100way_vertebrate",
+        "1000Gp3_AC",
+        "1000Gp3_AF",
+        "1000Gp3_AFR_AC",
+        "1000Gp3_AFR_AF",
+        "1000Gp3_EUR_AC",
+        "1000Gp3_EUR_AF",
+        "1000Gp3_AMR_AC",
+        "1000Gp3_AMR_AF",
+        "1000Gp3_EAS_AC",
+        "1000Gp3_EAS_AF",
+        "1000Gp3_SAS_AC",
+        "1000Gp3_SAS_AF",
+        "gnomAD_exomes_flag",
+        "gnomAD_exomes_AC",
+        "gnomAD_exomes_AN",
+        "gnomAD_exomes_AF",
+        "gnomAD_exomes_nhomalt",
+        "gnomAD_genomes_flag",
+        "gnomAD_genomes_AC",
+        "gnomAD_genomes_AN",
+        "gnomAD_genomes_AF",
+        "gnomAD_genomes_nhomalt",
+        "ALFA_Asian_AF",
+        "ALFA_Total_AC",
+        "ALFA_Total_AN",
+        "ALFA_Total_AF",
+        "clinvar_id",
+        "clinvar_clnsig",
+    ]
+)
+
+# v5.x fields (dbNSFP 5.x series)
+# Changes from v4: LRT retired; FATHMM retired -> fathmm-XF; MutationTaster
+# rankscore renamed; gnomAD exomes/genomes merged into gnomAD4.1 joint
+DBNSFP_FIELDS_V5 = ",".join(
+    [
+        "aaref",
+        "aaalt",
+        "aapos",
+        "SIFT_pred",
+        "SIFT4G_score",
+        "Polyphen2_HDIV_pred",
+        "Polyphen2_HVAR_score",
+        "MutationTaster_score",
+        "MutationTaster_rankscore",
+        "MutationTaster_pred",
+        "MutationAssessor_score",
+        "MutationAssessor_rankscore",
+        "MutationAssessor_pred",
+        "fathmm-XF_coding_score",
+        "fathmm-XF_coding_rankscore",
+        "fathmm-XF_coding_pred",
+        "PROVEAN_score",
+        "PROVEAN_converted_rankscore",
+        "PROVEAN_pred",
+        "MetaSVM_score",
+        "MetaSVM_rankscore",
+        "MetaSVM_pred",
+        "M-CAP_score",
+        "M-CAP_rankscore",
+        "M-CAP_pred",
+        "REVEL_score",
+        "REVEL_rankscore",
+        "MVP_score",
+        "MVP_rankscore",
+        "MPC_score",
+        "MPC_rankscore",
+        "CADD_raw_rankscore",
+        "CADD_phred",
+        "GERP++_NR",
+        "GERP++_RS",
+        "GERP++_RS_rankscore",
+        "phastCons100way_vertebrate",
+        "1000Gp3_AC",
+        "1000Gp3_AF",
+        "1000Gp3_AFR_AC",
+        "1000Gp3_AFR_AF",
+        "1000Gp3_EUR_AC",
+        "1000Gp3_EUR_AF",
+        "1000Gp3_AMR_AC",
+        "1000Gp3_AMR_AF",
+        "1000Gp3_EAS_AC",
+        "1000Gp3_EAS_AF",
+        "1000Gp3_SAS_AC",
+        "1000Gp3_SAS_AF",
+        "gnomAD4.1_joint_flag",
+        "gnomAD4.1_joint_AC",
+        "gnomAD4.1_joint_AN",
+        "gnomAD4.1_joint_AF",
+        "gnomAD4.1_joint_nhomalt",
+        "ALFA_Asian_AF",
+        "ALFA_Total_AC",
+        "ALFA_Total_AN",
+        "ALFA_Total_AF",
+        "clinvar_id",
+        "clinvar_clnsig",
+    ]
+)
+
 
 # ---------------------------------------------------------------------------
 # Section A: VCF Discovery
@@ -157,6 +298,26 @@ def discover_vcf_files(vcf_folder: str | Path) -> list[dict]:
                 }
             )
     return entries
+
+
+def detect_dbnsfp_version(dbnsfp_path: str | None) -> int:
+    """Detect the major dbNSFP version from a file path.
+
+    Returns 4 or 5 based on the filename. Defaults to 4 if undetectable.
+    """
+    if dbnsfp_path is None:
+        return 4
+    match = re.search(r"dbNSFP(\d+)", Path(dbnsfp_path).name, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    return 4
+
+
+def get_dbnsfp_fields(version: int) -> str:
+    """Return the appropriate dbNSFP field list for the given major version."""
+    if version >= 5:
+        return DBNSFP_FIELDS_V5
+    return DBNSFP_FIELDS_V4
 
 
 def _infer_output_folder(vcf_folder: str) -> str:
@@ -602,6 +763,10 @@ def generate_config_template(
     else:
         dbnsfp_path = f"EDIT_ME: /path/to/dbNSFP4.9a_{build_info['dbnsfp_suffix']}.gz"
 
+    # Resolve dbNSFP fields based on detected version
+    dbnsfp_version = detect_dbnsfp_version(dbnsfp_path)
+    dbnsfp_fields = get_dbnsfp_fields(dbnsfp_version)
+
     # Resolve output folder
     resolved_output_folder = output_folder or _infer_output_folder(vcf_folder)
 
@@ -655,7 +820,7 @@ snpeff:
 
 snpsift:
   dbnsfp_db: "{dbnsfp_path}"
-  dbnsfp_fields: "aaref,aaalt,aapos,SIFT_pred,SIFT4G_score,Polyphen2_HDIV_pred,Polyphen2_HVAR_score,LRT_pred,MutationTaster_score,MutationTaster_converted_rankscore,MutationTaster_pred,MutationAssessor_score,MutationAssessor_rankscore,MutationAssessor_pred,FATHMM_score,FATHMM_converted_rankscore,FATHMM_pred,PROVEAN_score,PROVEAN_converted_rankscore,PROVEAN_pred,MetaSVM_score,MetaSVM_rankscore,MetaSVM_pred,M-CAP_score,M-CAP_rankscore,M-CAP_pred,REVEL_score,REVEL_rankscore,MVP_score,MVP_rankscore,MPC_score,MPC_rankscore,CADD_raw_rankscore,CADD_phred,GERP++_NR,GERP++_RS,GERP++_RS_rankscore,phastCons100way_vertebrate,1000Gp3_AC,1000Gp3_AF,1000Gp3_AFR_AC,1000Gp3_AFR_AF,1000Gp3_EUR_AC,1000Gp3_EUR_AF,1000Gp3_AMR_AC,1000Gp3_AMR_AF,1000Gp3_EAS_AC,1000Gp3_EAS_AF,1000Gp3_SAS_AC,1000Gp3_SAS_AF,gnomAD_exomes_flag,gnomAD_exomes_AC,gnomAD_exomes_AN,gnomAD_exomes_AF,gnomAD_exomes_nhomalt,gnomAD_genomes_flag,gnomAD_genomes_AC,gnomAD_genomes_AN,gnomAD_genomes_AF,gnomAD_genomes_nhomalt,ALFA_Asian_AF,ALFA_Total_AC,ALFA_Total_AN,ALFA_Total_AF,clinvar_id,clinvar_clnsig"
+  dbnsfp_fields: "{dbnsfp_fields}"
 
 scatter:
   mode: "{scatter_mode}"

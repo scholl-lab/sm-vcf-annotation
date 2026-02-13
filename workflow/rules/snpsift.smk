@@ -25,14 +25,8 @@ rule snpsift_variant_type:
     shell:
         r"""
         echo "Starting snpsift_variant_type at: $(date)" >> {log}
-        variant_count=$(bcftools view -H {input.ann_vcf} | head -1 | wc -l)
-        if [ "$variant_count" -eq 0 ]; then
-            echo "No variants found, copying input to output." >> {log}
-            cp {input.ann_vcf} {output.ann_vartype_vcf}
-        else
-            SnpSift {params.java_opts} varType {input.ann_vcf} \
-            | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
-        fi
+        SnpSift {params.java_opts} varType {input.ann_vcf} \
+        | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
         echo "Finished snpsift_variant_type at: $(date)" >> {log}
         """
 

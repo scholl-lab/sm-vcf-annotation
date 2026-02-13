@@ -33,6 +33,10 @@ set-threads:
   scatter_vcf: 2
   scatter_vcf_chromosome: 2
   concatenate_annotated_vcfs: 4
+  bcftools_stats: 2
+  snpsift_tstv: 1
+  annotation_completeness: 1
+  multiqc: 1
 
 # Per-rule resource overrides
 # cpus_per_task mirrors set-threads as a workaround for
@@ -74,3 +78,19 @@ set-resources:
     mem_mb: 8192
     runtime: 1440
     cpus_per_task: 4
+  bcftools_stats:
+    mem_mb: 4000
+    runtime: 120
+    cpus_per_task: 2
+  snpsift_tstv:
+    mem_mb: 4000
+    runtime: 60
+    cpus_per_task: 1
+  annotation_completeness:
+    mem_mb: 4000
+    runtime: 120
+    cpus_per_task: 1
+  multiqc:
+    mem_mb: 4000
+    runtime: 30
+    cpus_per_task: 1

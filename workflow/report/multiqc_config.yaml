@@ -1,0 +1,12 @@
+report_header_info:
+  - Pipeline: "sm-vcf-annotation"
+
+top_modules:
+  - snpeff
+  - bcftools
+  - custom_content
+
+extra_fn_clean_exts:
+  - ".annotated"
+  - ".ann"
+  - ".bcftools_stats"

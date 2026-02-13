@@ -49,6 +49,76 @@ def get_vcf_path(sample: str, vcf_folder: str, samples_df: pd.DataFrame) -> str:
     return os.path.join(vcf_folder, f"{basename}.vcf.gz")
 
 
+def parse_annotation_completeness(
+    query_output: str,
+    field_names: list[str],
+) -> dict[str, dict[str, int | float]]:
+    """Parse bcftools query output and compute annotation completeness per field.
+
+    Parameters
+    ----------
+    query_output:
+        TSV text from ``bcftools query``.  Each line has CHROM, POS, then one
+        column per field in *field_names*.  Missing values are represented by
+        ``"."``.
+    field_names:
+        Column names corresponding to positions 2..N in the TSV.
+
+    Returns
+    -------
+    dict mapping each field name to
+        ``{"total": int, "annotated": int, "rate": float}``.
+    """
+    stats: dict[str, dict[str, int | float]] = {
+        f: {"total": 0, "annotated": 0, "rate": 0.0} for f in field_names
+    }
+    for line in query_output.strip().splitlines():
+        if not line:
+            continue
+        cols = line.split("\t")
+        # First two columns are CHROM, POS
+        values = cols[2:]
+        for i, field in enumerate(field_names):
+            if i < len(values):
+                stats[field]["total"] = int(stats[field]["total"]) + 1
+                val = values[i]
+                if val not in (".", ""):
+                    stats[field]["annotated"] = int(stats[field]["annotated"]) + 1
+    for field in field_names:
+        total = stats[field]["total"]
+        if total > 0:
+            stats[field]["rate"] = round(int(stats[field]["annotated"]) / int(total), 4)
+    return stats
+
+
+def parse_snpsift_tstv(tstv_output: str) -> dict[str, str]:
+    """Parse SnpSift tstv output into a dict of metric → value.
+
+    SnpSift tstv produces rows like::
+
+        Sample        : 1       Total
+        Transitions   : 150488  150488
+        Transversions : 70878   70878
+        Ts/Tv         : 2.123   2.123
+
+    Returns the *Total* column values keyed by row label (e.g.
+    ``{"Transitions": "150488", "Transversions": "70878", "Ts/Tv": "2.123"}``).
+    If there is no Total column, the first numeric column is used.
+    """
+    result: dict[str, str] = {}
+    for line in tstv_output.strip().splitlines():
+        if ":" not in line:
+            continue
+        label, rest = line.split(":", 1)
+        label = label.strip()
+        if label == "Sample":
+            continue
+        values = rest.strip().split()
+        # Last column is Total when multiple samples; only column otherwise
+        result[label] = values[-1] if values else ""
+    return result
+
+
 def annotation_step_vcf(annotation_dir: str, sample: str, step: int, scatter_unit: str) -> str:
     """Return the path for a given step of extra annotation.
 

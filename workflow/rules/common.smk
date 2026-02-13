@@ -24,6 +24,7 @@ ANNOTATION_SUBDIR = config["paths"].get("annotation_subdir", "annotation")
 
 ANNOTATION_DIR = os.path.join(OUTPUT_DIR, ANNOTATION_SUBDIR)
 LOG_DIR = os.path.join(OUTPUT_DIR, LOG_SUBDIR)
+QC_DIR = os.path.join(OUTPUT_DIR, "qc")
 INTERVALS_DIR = os.path.join(OUTPUT_DIR, "intervals")
 
 SNPEFF_DB = config["snpeff"]["database"]
@@ -89,9 +90,13 @@ def get_final_outputs():
     - none: rename_no_scatter copies {sample}.all.annotated.vcf.gz
     - chromosome: concatenate_annotated_vcfs merges per-chromosome files
     - interval: concatenate_annotated_vcfs merges per-interval files
+
+    Also includes the aggregated MultiQC report from QC rules.
     """
     samples = get_sample_list()
-    return expand(
+    annotated = expand(
         os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
         sample=samples,
     )
+    qc = [os.path.join(QC_DIR, "multiqc_report.html")]
+    return annotated + qc

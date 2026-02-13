@@ -159,6 +159,30 @@ def discover_vcf_files(vcf_folder: str | Path) -> list[dict]:
     return entries
 
 
+def _infer_output_folder(vcf_folder: str) -> str:
+    """Infer the annotation output folder from the VCF input folder.
+
+    Walks up the path to find a 'variant_calls' component and replaces
+    it (and everything below) with 'annotation'. Falls back to replacing
+    the last path component.
+
+    Examples:
+        ../results/A5297/variant_calls/mutect2/filtered_vcfs
+            -> ../results/A5297/annotation
+        ../results/exomes/variant_calls/filtered_vcfs
+            -> ../results/exomes/annotation
+        results/final
+            -> results/annotation
+    """
+    parts = Path(vcf_folder).parts
+    # Find the 'variant_calls' component
+    for i, part in enumerate(parts):
+        if part == "variant_calls":
+            return str(Path(*parts[:i]) / "annotation").replace("\\", "/")
+    # Fallback: replace last component
+    return str(Path(vcf_folder).parent / "annotation").replace("\\", "/")
+
+
 def format_size(size_bytes: int) -> str:
     """Convert bytes to human-readable format."""
     value = float(size_bytes)
@@ -546,6 +570,7 @@ def write_samples_tsv(
 
 def generate_config_template(
     vcf_folder: str = "results/final",
+    output_folder: str | None = None,
     output_path: str | Path = "config/config.yaml",
     ref_data: dict[str, Any] | None = None,
     dbnsfp_data: dict[str, Any] | None = None,
@@ -576,6 +601,9 @@ def generate_config_template(
         dbnsfp_path = dbnsfp_data["path"]
     else:
         dbnsfp_path = f"EDIT_ME: /path/to/dbNSFP4.9a_{build_info['dbnsfp_suffix']}.gz"
+
+    # Resolve output folder
+    resolved_output_folder = output_folder or _infer_output_folder(vcf_folder)
 
     # Resolve scatter config
     if scatter_config:
@@ -617,7 +645,7 @@ ref:
 paths:
   samples: "config/samples.tsv"
   vcf_folder: "{vcf_folder}"
-  output_folder: "results/annotation"
+  output_folder: "{resolved_output_folder}"
   log_subdir: "logs"
   annotation_subdir: "annotation"
 
@@ -746,6 +774,10 @@ def _interactive_wizard() -> None:
             print(f"  {e['basename']}.vcf.gz  ({format_size(e['size_bytes'])})")
         print()
 
+    # --- Step 3b: Output folder ---
+    default_output = _infer_output_folder(vcf_folder)
+    output_folder = _prompt("Output folder", default=default_output)
+
     # --- Step 4: Reference genome ---
     print("Scanning for reference genome...")
     ref_data = discover_reference_data(project_root=project_root)
@@ -839,6 +871,7 @@ def _interactive_wizard() -> None:
     print("  Summary")
     print("=" * 60)
     print(f"  VCF folder:     {vcf_folder}")
+    print(f"  Output folder:  {output_folder}")
     print(f"  Samples:        {len(entries)}")
     print(f"  Reference:      {ref_data.get('genome', 'not set')}")
     print(f"  Build:          {build}")
@@ -864,6 +897,7 @@ def _interactive_wizard() -> None:
     try:
         generate_config_template(
             vcf_folder=vcf_folder,
+            output_folder=output_folder,
             ref_data=ref_data,
             dbnsfp_data=dbnsfp_data,
             extra_annotations=extra_annotations if extra_annotations else None,
@@ -923,6 +957,12 @@ def main() -> None:
         help="Genome build (default: auto-detect from reference).",
     )
     parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Pipeline output directory (default: inferred from --vcf-folder).",
+    )
+    parser.add_argument(
         "--scatter-mode",
         type=str,
         default="none",
@@ -962,7 +1002,11 @@ def main() -> None:
         print(f"No VCF files found in: {args.vcf_folder}", file=sys.stderr)
         sys.exit(1)
 
+    # Resolve output folder
+    output_folder = args.output_dir or _infer_output_folder(args.vcf_folder)
+
     print(f"Found {len(entries)} VCF file(s) in {args.vcf_folder}")
+    print(f"Output folder: {output_folder}")
     for e in entries:
         print(f"  {e['basename']}.vcf.gz  ({format_size(e['size_bytes'])})")
 
@@ -1013,6 +1057,7 @@ def main() -> None:
         print(
             generate_config_template(
                 vcf_folder=args.vcf_folder,
+                output_folder=output_folder,
                 ref_data=ref_data,
                 dbnsfp_data=dbnsfp_data,
                 extra_annotations=extra_annotations,
@@ -1027,6 +1072,7 @@ def main() -> None:
 
     generate_config_template(
         vcf_folder=args.vcf_folder,
+        output_folder=output_folder,
         ref_data=ref_data,
         dbnsfp_data=dbnsfp_data,
         extra_annotations=extra_annotations,

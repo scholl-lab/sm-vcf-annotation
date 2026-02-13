@@ -9,7 +9,7 @@
 # Requires: pip install snakemake-executor-plugin-slurm
 #
 # Key Charite constraints:
-#   - Max walltime: 2 days (2-00:00:00)
+#   - Max walltime: 2 days (2880 min) on all partitions (compute, gpu, etc.)
 #   - Frontend memory limit: 1 GB (run coordinator as SLURM job)
 #   - Conda requires: source /etc/profile.d/conda.sh
 # =============================================================================
@@ -23,12 +23,3 @@ default-resources:
   slurm_account: sc-users
   mem_mb_per_cpu: 4400
   runtime: 120
-
-# Partition overrides for long-running annotation jobs
-set-resources:
-  snpeff_annotation:
-    slurm_partition: long
-  snpsift_annotation_dbnsfp:
-    slurm_partition: long
-  annotation_step:
-    slurm_partition: long

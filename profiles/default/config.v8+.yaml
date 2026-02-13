@@ -39,19 +39,19 @@ set-threads:
 set-resources:
   snpeff_annotation:
     mem_mb: 32768
-    runtime: 4320
+    runtime: 2880
     cpus_per_task: 4
   snpsift_variant_type:
     mem_mb: 32768
-    runtime: 4320
+    runtime: 2880
     cpus_per_task: 4
   snpsift_annotation_dbnsfp:
     mem_mb: 32768
-    runtime: 4320
+    runtime: 2880
     cpus_per_task: 4
   annotation_step:
     mem_mb: 32768
-    runtime: 4320
+    runtime: 2880
     cpus_per_task: 4
   finalize_annotation:
     mem_mb: 4000

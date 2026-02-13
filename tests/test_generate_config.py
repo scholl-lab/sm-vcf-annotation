@@ -12,6 +12,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "scripts"))
 from generate_config import (
     DEFAULT_CANONICAL_CONTIGS_CHR,
     DEFAULT_CANONICAL_CONTIGS_NOCHR,
+    _infer_output_folder,
     build_samples_dataframe,
     detect_genome_build,
     discover_dbnsfp,
@@ -110,6 +111,37 @@ class TestWriteSamplesTsv:
         out.write_text("existing")
         with pytest.raises(FileExistsError):
             write_samples_tsv(df, output_path=out)
+
+
+class TestInferOutputFolder:
+    def test_variant_calls_mutect2(self):
+        result = _infer_output_folder("../results/A5297/variant_calls/mutect2/filtered_vcfs")
+        assert result == "../results/A5297/annotation"
+
+    def test_variant_calls_freebayes(self):
+        result = _infer_output_folder("../results/exomes/variant_calls/freebayes/filtered_vcfs")
+        assert result == "../results/exomes/annotation"
+
+    def test_variant_calls_direct(self):
+        result = _infer_output_folder("../results/cohort/variant_calls/filtered_vcfs")
+        assert result == "../results/cohort/annotation"
+
+    def test_variant_calls_top_level(self):
+        result = _infer_output_folder("../results/cohort/variant_calls")
+        assert result == "../results/cohort/annotation"
+
+    def test_fallback_no_variant_calls(self):
+        result = _infer_output_folder("results/final")
+        assert result == "results/annotation"
+
+    def test_fallback_simple_path(self):
+        result = _infer_output_folder("/data/vcfs")
+        assert result == "/data/annotation"
+
+    def test_forward_slashes_on_windows(self):
+        # Ensure no backslashes in output
+        result = _infer_output_folder("../results/A5297/variant_calls/mutect2/filtered")
+        assert "\\" not in result
 
 
 class TestDetectGenomeBuild:
@@ -502,3 +534,22 @@ class TestGenerateConfigTemplate:
             ref_data=ref_data, dbnsfp_data=dbnsfp_data, dry_run=True
         )
         assert "EDIT_ME:" not in content
+
+    def test_output_folder_inferred_from_vcf_folder(self):
+        content = generate_config_template(
+            vcf_folder="../results/A5297/variant_calls/mutect2/filtered",
+            dry_run=True,
+        )
+        assert "../results/A5297/annotation" in content
+
+    def test_output_folder_explicit(self):
+        content = generate_config_template(
+            vcf_folder="/data/vcfs",
+            output_folder="../results/myproject/annotation",
+            dry_run=True,
+        )
+        assert "../results/myproject/annotation" in content
+
+    def test_output_folder_default_fallback(self):
+        content = generate_config_template(vcf_folder="results/final", dry_run=True)
+        assert "results/annotation" in content

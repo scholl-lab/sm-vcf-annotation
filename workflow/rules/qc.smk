@@ -36,20 +36,12 @@ rule snpsift_tstv:
     conda:
         "../envs/snpeff.yaml"
     run:
-        import subprocess
-
         shell("echo 'Starting snpsift_tstv at: $(date)' > {log}")
-        result = subprocess.run(
-            f"SnpSift {params.java_opts} tstv {input.vcf}",
-            shell=True,
-            capture_output=True,
-            text=True,
+        stdout = shell(
+            "SnpSift {params.java_opts} tstv {input.vcf} 2>> {log}",
+            read=True,
         )
-        if result.returncode != 0:
-            with open(str(log), "a") as lf:
-                lf.write(f"SnpSift tstv stderr: {result.stderr}\n")
-            raise RuntimeError("SnpSift tstv failed; see log for details.")
-        tstv = parse_snpsift_tstv(result.stdout)
+        tstv = parse_snpsift_tstv(stdout)
         with open(str(output.tstv), "w") as fh:
             fh.write("# id: 'snpsift_tstv'\n")
             fh.write("# section_name: 'SnpSift Ts/Tv'\n")
@@ -88,25 +80,11 @@ rule annotation_completeness:
     conda:
         "../envs/snpeff.yaml"
     run:
-        import subprocess
-
         shell("echo 'Starting annotation_completeness at: $(date)' > {log}")
-        field_fmt = "\t".join([f"%{f}" for f in params.fields])
-        query_cmd = f"bcftools query -f '%CHROM\\t%POS\\t{field_fmt}\\n' {input.vcf}"
-        proc = subprocess.Popen(
-            query_cmd,
-            shell=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-        stats = parse_annotation_completeness(proc.stdout, list(params.fields))
-        stderr = proc.stderr.read()
-        returncode = proc.wait()
-        if returncode != 0:
-            with open(str(log), "a") as lf:
-                lf.write(f"bcftools query stderr: {stderr}\n")
-            raise RuntimeError("bcftools query failed; see log for details.")
+        field_fmt = "\\t".join([f"%{f}" for f in params.fields])
+        cmd = f"bcftools query -f '%CHROM\\t%POS\\t{field_fmt}\\n' {{input.vcf}} 2>> {{log}}"
+        stdout = shell(cmd, read=True)
+        stats = parse_annotation_completeness(stdout.splitlines(), list(params.fields))
 
         with open(str(output.tsv), "w") as fh:
             fh.write("# id: 'annotation_completeness'\n")

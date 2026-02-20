@@ -1,7 +1,5 @@
 """QC rules: bcftools stats, SnpSift tstv, annotation completeness, and MultiQC."""
 
-from rules.helpers import parse_annotation_completeness, parse_snpsift_tstv
-
 
 rule bcftools_stats:
     input:
@@ -35,35 +33,8 @@ rule snpsift_tstv:
         java_opts=get_java_opts,
     conda:
         "../envs/snpeff.yaml"
-    run:
-        shell("echo 'Starting snpsift_tstv at: $(date)' > {log}")
-        stdout = shell(
-            "SnpSift {params.java_opts} tstv {input.vcf} 2>> {log}",
-            read=True,
-        )
-        tstv = parse_snpsift_tstv(stdout)
-        with open(str(output.tstv), "w") as fh:
-            fh.write("# id: 'snpsift_tstv'\n")
-            fh.write("# section_name: 'SnpSift Ts/Tv'\n")
-            fh.write("# description: 'Transition / transversion ratios from SnpSift'\n")
-            fh.write("# format: 'tsv'\n")
-            fh.write("# plot_type: 'generalstats'\n")
-            fh.write("# pconfig:\n")
-            fh.write("#     - Transitions:\n")
-            fh.write("#         title: 'Transitions'\n")
-            fh.write("#         format: '{:,.0f}'\n")
-            fh.write("#     - Transversions:\n")
-            fh.write("#         title: 'Transversions'\n")
-            fh.write("#         format: '{:,.0f}'\n")
-            fh.write("#     - Ts/Tv:\n")
-            fh.write("#         title: 'Ts/Tv'\n")
-            fh.write("#         min: 0\n")
-            fh.write("#         format: '{:.3f}'\n")
-            cols = ["Transitions", "Transversions", "Ts/Tv"]
-            fh.write("Sample\t" + "\t".join(cols) + "\n")
-            vals = [tstv.get(c, "") for c in cols]
-            fh.write(f"{wildcards.sample}\t" + "\t".join(vals) + "\n")
-        shell("echo 'Finished snpsift_tstv at: $(date)' >> {log}")
+    script:
+        "../scripts/snpsift_tstv.py"
 
 
 rule annotation_completeness:
@@ -79,30 +50,8 @@ rule annotation_completeness:
         fields=["ANN", "dbNSFP_SIFT_pred", "dbNSFP_REVEL_score"],
     conda:
         "../envs/snpeff.yaml"
-    run:
-        shell("echo 'Starting annotation_completeness at: $(date)' > {log}")
-        field_fmt = "\\t".join([f"%{f}" for f in params.fields])
-        cmd = f"bcftools query -f '%CHROM\\t%POS\\t{field_fmt}\\n' {{input.vcf}} 2>> {{log}}"
-        stdout = shell(cmd, read=True)
-        stats = parse_annotation_completeness(stdout.splitlines(), list(params.fields))
-
-        with open(str(output.tsv), "w") as fh:
-            fh.write("# id: 'annotation_completeness'\n")
-            fh.write("# section_name: 'Annotation Completeness'\n")
-            fh.write("# description: 'Fraction of variants with non-missing annotation values'\n")
-            fh.write("# format: 'tsv'\n")
-            fh.write("# plot_type: 'generalstats'\n")
-            fh.write("# pconfig:\n")
-            for field in params.fields:
-                fh.write(f"#     - {field}_rate:\n")
-                fh.write(f"#         title: '{field} rate'\n")
-                fh.write("#         min: 0\n")
-                fh.write("#         max: 1\n")
-                fh.write("#         format: '{:.2%}'\n")
-            fh.write("Sample\t" + "\t".join([f"{f}_rate" for f in params.fields]) + "\n")
-            rates = [str(stats[f]["rate"]) for f in params.fields]
-            fh.write(f"{wildcards.sample}\t" + "\t".join(rates) + "\n")
-        shell("echo 'Finished annotation_completeness at: $(date)' >> {log}")
+    script:
+        "../scripts/annotation_completeness.py"
 
 
 rule multiqc:

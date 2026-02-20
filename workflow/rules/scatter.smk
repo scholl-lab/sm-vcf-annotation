@@ -150,10 +150,16 @@ elif SCATTER_MODE == "interval":
                 f"{wc.scatter_unit}.interval_list",
             ),
         output:
-            temp(
+            vcf=temp(
                 os.path.join(
                     ANNOTATION_DIR,
                     "{sample}.{scatter_unit}.vcf.gz",
+                )
+            ),
+            tbi=temp(
+                os.path.join(
+                    ANNOTATION_DIR,
+                    "{sample}.{scatter_unit}.vcf.gz.tbi",
                 )
             ),
         log:
@@ -170,7 +176,7 @@ elif SCATTER_MODE == "interval":
               -R {params.ref} \
               -V {input.vcf_file} \
               -L {input.interval_file} \
-              -O {output} 2>> {log}
+              -O {output.vcf} 2>> {log}
             echo "Finished scatter_vcf at: $(date)" >> {log}
             """
 

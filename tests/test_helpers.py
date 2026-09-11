@@ -188,6 +188,38 @@ class TestParseAnnotationCompleteness:
 
 
 class TestParseSnpsiftTstv:
+    def test_snpsift_52_csv_output(self):
+        """SnpSift 5.2 emits CSV sections, including non-Ts/Tv statistics."""
+        output = (
+            "\nTS/TV stats:\n"
+            "Sample ,Synthetic,Total\n"
+            "Transitions ,2,2\n"
+            "Transversions ,1,1\n"
+            "Ts/Tv ,2.000,2.000\n"
+            "\n\nHom/Het stats:\n"
+            "Sample ,Synthetic,Total\n"
+            "Homozygous reference,0,0\n"
+            "One ALT,3,3\n"
+        )
+        result = parse_snpsift_tstv(output)
+        assert result["Transitions"] == "2"
+        assert result["Transversions"] == "1"
+        assert result["Ts/Tv"] == "2.000"
+        assert "Sample" not in result
+
+    def test_csv_uses_total_across_samples(self):
+        output = (
+            "Sample ,SampleA,SampleB,Total\n"
+            "Transitions ,2,3,5\n"
+            "Transversions ,1,1,2\n"
+            "Ts/Tv ,2.000,3.000,2.500\n"
+        )
+        assert parse_snpsift_tstv(output) == {
+            "Transitions": "5",
+            "Transversions": "2",
+            "Ts/Tv": "2.500",
+        }
+
     def test_multi_sample(self):
         output = (
             "Sample        : 1       2       Total\n"
@@ -217,10 +249,7 @@ class TestParseSnpsiftTstv:
         assert result == {}
 
     def test_skips_sample_row(self):
-        output = (
-            "Sample        : 1       Total\n"
-            "Transitions   : 100     100\n"
-        )
+        output = "Sample        : 1       Total\nTransitions   : 100     100\n"
         result = parse_snpsift_tstv(output)
         assert "Sample" not in result
         assert result["Transitions"] == "100"

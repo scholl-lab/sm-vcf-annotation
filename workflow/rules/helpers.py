@@ -97,7 +97,14 @@ def parse_annotation_completeness(
 def parse_snpsift_tstv(tstv_output: str) -> dict[str, str]:
     """Parse SnpSift tstv output into a dict of metric → value.
 
-    SnpSift tstv produces rows like::
+    SnpSift 5.2 produces comma-separated rows like::
+
+        Sample ,SampleA,Total
+        Transitions ,150488,150488
+        Transversions ,70878,70878
+        Ts/Tv ,2.123,2.123
+
+    Colon-separated output is also supported::
 
         Sample        : 1       Total
         Transitions   : 150488  150488
@@ -111,13 +118,17 @@ def parse_snpsift_tstv(tstv_output: str) -> dict[str, str]:
     """
     result: dict[str, str] = {}
     for line in tstv_output.strip().splitlines():
-        if ":" not in line:
+        if "," in line:
+            label, rest = line.split(",", 1)
+            values = [value.strip() for value in rest.split(",")]
+        elif ":" in line:
+            label, rest = line.split(":", 1)
+            values = rest.strip().split()
+        else:
             continue
-        label, rest = line.split(":", 1)
         label = label.strip()
         if label == "Sample":
             continue
-        values = rest.strip().split()
         # Last column is Total when multiple samples; only column otherwise
         result[label] = values[-1] if values else ""
     return result

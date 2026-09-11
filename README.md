@@ -462,6 +462,20 @@ sm-vcf-annotation/
 └── deprecated/                  Old standalone workflows (for reference)
 ```
 
+## How to cite
+
+If you use sm-vcf-annotation in your research, cite the software using
+[`CITATION.cff`](CITATION.cff) or GitHub's **Cite this repository** button. The
+metadata describe [v1.2.2](https://github.com/scholl-lab/sm-vcf-annotation/releases/tag/v1.2.2),
+released on 2026-02-20.
+
+A Zenodo DOI is pending. To archive the next release, a maintainer must enable
+the Zenodo GitHub integration, update the version and release date in both
+`CITATION.cff` and [`.zenodo.json`](.zenodo.json), and publish the matching GitHub
+release. Once Zenodo mints the DOI, add it to the citation metadata and this
+section, together with a DOI badge. Keep both metadata files synchronized with
+future releases.
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.

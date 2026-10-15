@@ -48,7 +48,7 @@ properties:
       canon_list:
         type: string
         default: ""
-        description: Optional path to a canonical transcript list passed to snpEff via -canonList.
+        description: "Optional path to a transcript list (one transcript ID per line, several per gene allowed; must hold MANE Select \u222a Plus Clinical plus every APA-gene transcript) passed to snpEff via -onlyTr."
     required: [database]
 
   snpsift:

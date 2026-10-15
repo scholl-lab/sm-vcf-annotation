@@ -32,7 +32,7 @@ rule snpeff_annotation:
         java_opts=get_java_opts,
         db=SNPEFF_DB,
         extra_flags=SNPEFF_EXTRA_FLAGS,
-        canon_arg=lambda wc, input: f"-canonList {input.canon_list}" if input.canon_list else "",
+        canon_arg=lambda wc, input: f"-onlyTr {input.canon_list}" if input.canon_list else "",
     conda:
         "../envs/snpeff.yaml"
     shell:

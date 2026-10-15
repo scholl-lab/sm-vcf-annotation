@@ -616,7 +616,7 @@ def parse_canonical_contigs(dict_path: str | None, build: str = "GRCh38") -> lis
     # Detect chr prefix from first contig
     has_chr = contigs[0].startswith("chr")
 
-    # Filter to canonical autosomes + sex chromosomes
+    # Filter to canonical autosomes, sex chromosomes, and mitochondrial contig
     if has_chr:
         canonical = set(DEFAULT_CANONICAL_CONTIGS_CHR)
     else:

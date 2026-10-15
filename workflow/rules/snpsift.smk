@@ -82,7 +82,7 @@ if N_ANNOTATIONS > 0:
         input:
             vcf=get_annotation_step_input,
             db_vcf=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["vcf_file"],
-            db_tbi=lambda wc: f"{EXTRA_ANNOTATIONS[int(wc.step)-1]['vcf_file']}.tbi",
+            db_tbi=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["vcf_file"] + ".tbi",
         output:
             temp(
                 os.path.join(

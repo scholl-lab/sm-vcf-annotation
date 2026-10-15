@@ -32,7 +32,7 @@ Unified pipeline configuration. All paths are relative to the repository root.
 | `paths.log_subdir` | `"logs"` | Log subdirectory name |
 | `paths.annotation_subdir` | `"annotation"` | Annotation subdirectory name |
 | `snpeff.extra_flags` | `""` | Additional snpEff flags |
-| `snpeff.canon_list` | `""` | Optional canonical transcript list passed to snpEff via `-canonList` |
+| `snpeff.canon_list` | `""` | Optional transcript list (one transcript ID per line, several per gene allowed; must hold MANE Select ∪ Plus Clinical plus every APA-gene transcript) passed to snpEff via `-onlyTr` |
 | `extra_annotations` | `[]` | List of extra VCF annotation steps |
 
 ### dbNSFP Field Lists

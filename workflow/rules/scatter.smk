@@ -27,7 +27,12 @@ elif SCATTER_MODE == "chromosome":
     rule scatter_vcf_chromosome:
         input:
             vcf_file=get_input_vcf,
-            vcf_tbi=lambda wc: f"{get_input_vcf(wc)}.tbi",
+            vcf_tbi=lambda wc: (
+                f"{get_input_vcf(wc)}.csi"
+                if os.path.exists(f"{get_input_vcf(wc)}.csi")
+                and not os.path.exists(f"{get_input_vcf(wc)}.tbi")
+                else f"{get_input_vcf(wc)}.tbi"
+            ),
         output:
             temp(os.path.join(ANNOTATION_DIR, "{sample}.{scatter_unit}.vcf.gz")),
         params:

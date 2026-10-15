@@ -119,3 +119,21 @@ class TestSamplesSchema:
         broken = {"sample": "SampleA"}
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(broken, samples_schema)
+
+
+class TestProfiles:
+    def test_profiles_have_no_mem_mb_per_cpu_and_matching_resources(self):
+        from pathlib import Path
+
+        profile_files = sorted(Path("profiles").glob("*/config.v8+.yaml"))
+        assert profile_files
+        for pf in profile_files:
+            data = yaml.safe_load(pf.read_text())
+            default_res = data.get("default-resources", {})
+            assert "mem_mb_per_cpu" not in default_res, f"{pf} still sets mem_mb_per_cpu"
+            set_threads = data.get("set-threads", {})
+            set_resources = data.get("set-resources", {})
+            for rule, threads in set_threads.items():
+                assert rule in set_resources, f"{rule} missing from set-resources in {pf}"
+                assert set_resources[rule]["cpus_per_task"] == threads
+                assert set_resources[rule]["mem_mb"] >= 4000

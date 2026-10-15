@@ -402,25 +402,26 @@ class TestParseCanonicalContigs:
         for c in DEFAULT_CANONICAL_CONTIGS_CHR:
             lines.append(f"@SQ\tSN:{c}\tLN:1000\n")
         # Add non-canonical
-        lines.append("@SQ\tSN:chrM\tLN:16569\n")
         lines.append("@SQ\tSN:chr1_random\tLN:500\n")
         dict_file.write_text("".join(lines))
 
         contigs = parse_canonical_contigs(str(dict_file))
         assert contigs == DEFAULT_CANONICAL_CONTIGS_CHR
-        assert "chrM" not in contigs
+        assert "chrM" in contigs
+        assert "chr1_random" not in contigs
 
     def test_parse_dict_without_chr_prefix(self, tmp_path):
         dict_file = tmp_path / "genome.dict"
         lines = ["@HD\tVN:1.6\n"]
         for c in DEFAULT_CANONICAL_CONTIGS_NOCHR:
             lines.append(f"@SQ\tSN:{c}\tLN:1000\n")
-        lines.append("@SQ\tSN:MT\tLN:16569\n")
+        lines.append("@SQ\tSN:GL000192.1\tLN:547496\n")
         dict_file.write_text("".join(lines))
 
         contigs = parse_canonical_contigs(str(dict_file), build="GRCh37")
         assert contigs == DEFAULT_CANONICAL_CONTIGS_NOCHR
-        assert "MT" not in contigs
+        assert "MT" in contigs
+        assert "GL000192.1" not in contigs
 
     def test_default_contigs_grch38(self):
         contigs = parse_canonical_contigs(None, build="GRCh38")

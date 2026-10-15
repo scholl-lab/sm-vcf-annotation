@@ -27,8 +27,15 @@ elif SCATTER_MODE == "chromosome":
     rule scatter_vcf_chromosome:
         input:
             vcf_file=get_input_vcf,
+            vcf_tbi=lambda wc: f"{get_input_vcf(wc)}.tbi",
         output:
             temp(os.path.join(ANNOTATION_DIR, "{sample}.{scatter_unit}.vcf.gz")),
+        params:
+            region_arg=lambda wc: (
+                f"-t ^{','.join(CANONICAL_CONTIGS)}"
+                if wc.scatter_unit == "other"
+                else f"-r {wc.scatter_unit}"
+            ),
         log:
             os.path.join(LOG_DIR, "scatter_vcf_chromosome.{sample}.{scatter_unit}.log"),
         conda:
@@ -36,57 +43,14 @@ elif SCATTER_MODE == "chromosome":
         shell:
             r"""
             echo "Starting scatter_vcf_chromosome at: $(date)" >> {log}
-            bcftools view -r {wildcards.scatter_unit} {input.vcf_file} \
+            bcftools view {params.region_arg} {input.vcf_file} \
                 -Oz --threads {threads} -o {output} 2>> {log}
             echo "Finished scatter_vcf_chromosome at: $(date)" >> {log}
-            """
-
-    rule concatenate_annotated_vcfs:
-        # Identical to interval mode's concatenate rule — duplicated because
-        # Snakemake if/elif means only one branch's rules are defined.
-        input:
-            lambda wc: expand(
-                os.path.join(
-                    ANNOTATION_DIR,
-                    "{sample}.{scatter_unit}.annotated.vcf.gz",
-                ),
-                sample=[wc.sample],
-                scatter_unit=SCATTER_UNITS,
-            ),
-        output:
-            os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
-        log:
-            os.path.join(LOG_DIR, "concatenate_annotated_vcfs.{sample}.log"),
-        conda:
-            "../envs/snpeff.yaml"
-        shell:
-            r"""
-            echo "Starting concatenate_annotated_vcfs at: $(date)" >> {log}
-            bcftools concat -Oz --threads {threads} {input} \
-                -o {output} 2>> {log}
-            bcftools index --threads {threads} -t {output} 2>> {log}
-            echo "Finished concatenate_annotated_vcfs at: $(date)" >> {log}
             """
 
 elif SCATTER_MODE == "interval":
 
     INTERVALS_LIST = os.path.join(INTERVALS_DIR, "intervals.interval_list")
-
-    def _get_noncanonical_contigs(dict_file, canonical):
-        """Parse reference dictionary to find non-canonical contigs."""
-        noncanonical = []
-        with open(dict_file) as f:
-            for line in f:
-                if line.startswith("@SQ"):
-                    for field in line.strip().split("\t"):
-                        if field.startswith("SN:"):
-                            contig = field.replace("SN:", "")
-                            if contig not in canonical:
-                                noncanonical.append(contig)
-        return noncanonical
-
-    _noncanonical = _get_noncanonical_contigs(REF_DICT, CANONICAL_CONTIGS)
-    _exclude_intervals = " ".join(["-XL " + c for c in _noncanonical])
 
     _interval_ids = [f"{i:04d}" for i in range(SCATTER_COUNT)]
 
@@ -123,7 +87,6 @@ elif SCATTER_MODE == "interval":
             ),
         params:
             scatter_count=SCATTER_COUNT,
-            exclude_intervals=_exclude_intervals,
             intervals_dir=INTERVALS_DIR,
         log:
             os.path.join(LOG_DIR, "split_intervals.log"),
@@ -136,7 +99,6 @@ elif SCATTER_MODE == "interval":
             gatk SplitIntervals \
                 -R {input.reference} \
                 -L {input.intervals_list} \
-                {params.exclude_intervals} \
                 --scatter-count {params.scatter_count} \
                 -O {params.intervals_dir} &>> {log}
             echo "Finished SplitIntervals at: $(date)" >> {log}
@@ -176,13 +138,17 @@ elif SCATTER_MODE == "interval":
               -R {params.ref} \
               -V {input.vcf_file} \
               -L {input.interval_file} \
+              --ignore-non-starting-in-interval \
               -O {output.vcf} 2>> {log}
             echo "Finished scatter_vcf at: $(date)" >> {log}
             """
 
+
+if SCATTER_MODE in ("chromosome", "interval"):
+
     rule concatenate_annotated_vcfs:
         input:
-            lambda wc: expand(
+            vcfs=lambda wc: expand(
                 os.path.join(
                     ANNOTATION_DIR,
                     "{sample}.{scatter_unit}.annotated.vcf.gz",
@@ -190,6 +156,7 @@ elif SCATTER_MODE == "interval":
                 sample=[wc.sample],
                 scatter_unit=SCATTER_UNITS,
             ),
+            raw_vcf=get_input_vcf,
         output:
             os.path.join(ANNOTATION_DIR, "{sample}.annotated.vcf.gz"),
         log:
@@ -199,8 +166,9 @@ elif SCATTER_MODE == "interval":
         shell:
             r"""
             echo "Starting concatenate_annotated_vcfs at: $(date)" >> {log}
-            bcftools concat -Oz --threads {threads} {input} \
+            bcftools concat -Oz --threads {threads} {input.vcfs} \
                 -o {output} 2>> {log}
             bcftools index --threads {threads} -t {output} 2>> {log}
+            [ "$(bcftools view -H {input.raw_vcf} | wc -l)" -eq "$(bcftools index -n {output})" ]
             echo "Finished concatenate_annotated_vcfs at: $(date)" >> {log}
             """

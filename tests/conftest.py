@@ -73,7 +73,7 @@ def config_dict_chromosome():
         "scatter": {
             "mode": "chromosome",
             "count": 100,
-            "canonical_contigs": [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"],
+            "canonical_contigs": [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY", "chrM"],
         },
         "extra_annotations": [],
     }

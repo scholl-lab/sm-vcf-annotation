@@ -28,7 +28,7 @@ def get_scatter_units(
 ) -> list[str]:
     """Return the list of scatter units based on mode.
 
-    - mode="chromosome": returns the chromosome list (e.g. ["chr1", ..., "chrY"])
+    - mode="chromosome": returns the chromosome list plus "other" (e.g. ["chr1", ..., "chrM", "other"])
     - mode="interval": returns ["0000-scattered", "0001-scattered", ...]
     - mode="none": returns ["all"]
     """
@@ -37,7 +37,7 @@ def get_scatter_units(
             raise ValueError(
                 "get_scatter_units(mode='chromosome') requires a non-empty 'chromosomes' list."
             )
-        return chromosomes
+        return [*chromosomes, "other"] if "other" not in chromosomes else list(chromosomes)
     if mode == "interval":
         return [f"{i:04d}-scattered" for i in range(scatter_count)]
     return ["all"]

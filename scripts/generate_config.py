@@ -128,8 +128,8 @@ KNOWN_ANNOTATIONS: dict[str, dict[str, str]] = {
 }
 
 # Default canonical contigs
-DEFAULT_CANONICAL_CONTIGS_CHR = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"]
-DEFAULT_CANONICAL_CONTIGS_NOCHR = [str(i) for i in range(1, 23)] + ["X", "Y"]
+DEFAULT_CANONICAL_CONTIGS_CHR = [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY", "chrM"]
+DEFAULT_CANONICAL_CONTIGS_NOCHR = [str(i) for i in range(1, 23)] + ["X", "Y", "MT"]
 
 # dbNSFP version-specific field lists
 # v4.x fields (dbNSFP 4.x series)

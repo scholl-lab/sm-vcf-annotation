@@ -29,6 +29,7 @@ INTERVALS_DIR = os.path.join(OUTPUT_DIR, "intervals")
 
 SNPEFF_DB = config["snpeff"]["database"]
 SNPEFF_EXTRA_FLAGS = config["snpeff"].get("extra_flags", "")
+SNPEFF_CANON_LIST = config["snpeff"].get("canon_list", "")
 
 SNPSIFT_DBNSFP_DB = config["snpsift"]["dbnsfp_db"]
 SNPSIFT_DBNSFP_FIELDS = config["snpsift"]["dbnsfp_fields"]

@@ -62,9 +62,9 @@ class TestGetScatterUnits:
         assert result[99] == "0099-scattered"
 
     def test_chromosome_mode(self):
-        chroms = ["chr1", "chr2", "chr3", "chrX", "chrY"]
+        chroms = ["chr1", "chr2", "chr3", "chrX", "chrY", "chrM"]
         result = get_scatter_units("chromosome", chromosomes=chroms)
-        assert result == chroms
+        assert result == [*chroms, "other"]
 
     def test_chromosome_mode_no_chromosomes_raises(self):
         import pytest
@@ -79,9 +79,9 @@ class TestGetScatterUnits:
             get_scatter_units("chromosome", chromosomes=[])
 
     def test_chromosome_mode_grch37_contigs(self):
-        contigs = ["1", "2", "3", "X", "Y"]
+        contigs = ["1", "2", "3", "X", "Y", "MT"]
         result = get_scatter_units("chromosome", chromosomes=contigs)
-        assert result == contigs
+        assert result == [*contigs, "other"]
 
     def test_interval_mode_unaffected_by_chromosomes(self):
         result = get_scatter_units("interval", chromosomes=["chr1"], scatter_count=3)

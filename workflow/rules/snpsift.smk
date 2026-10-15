@@ -37,6 +37,8 @@ rule snpsift_annotation_dbnsfp:
             ANNOTATION_DIR,
             "{sample}.{scatter_unit}.ann.vartype.vcf.gz",
         ),
+        dbnsfp_db=SNPSIFT_DBNSFP_DB,
+        dbnsfp_tbi=f"{SNPSIFT_DBNSFP_DB}.tbi",
     output:
         ann_dbnsfp_vcf=temp(
             os.path.join(
@@ -56,7 +58,6 @@ rule snpsift_annotation_dbnsfp:
         )
     params:
         java_opts=get_java_opts,
-        dbnsfp_db=SNPSIFT_DBNSFP_DB,
         dbnsfp_fields=SNPSIFT_DBNSFP_FIELDS,
     conda:
         "../envs/snpeff.yaml"
@@ -65,7 +66,7 @@ rule snpsift_annotation_dbnsfp:
         echo "Starting snpsift_annotation_dbnsfp at: $(date)" >> {log}
         SnpSift {params.java_opts} dbnsfp \
             -f {params.dbnsfp_fields} \
-            -db {params.dbnsfp_db} \
+            -db {input.dbnsfp_db} \
             {input.ann_vartype_vcf} \
         | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
@@ -79,7 +80,9 @@ if N_ANNOTATIONS > 0:
 
     rule annotation_step:
         input:
-            get_annotation_step_input,
+            vcf=get_annotation_step_input,
+            db_vcf=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["vcf_file"],
+            db_tbi=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["vcf_file"] + ".tbi",
         output:
             temp(
                 os.path.join(
@@ -99,7 +102,6 @@ if N_ANNOTATIONS > 0:
             )
         params:
             java_opts=get_java_opts,
-            vcf_file=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["vcf_file"],
             info_field=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["info_field"],
             annotation_prefix=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["annotation_prefix"],
         conda:
@@ -108,9 +110,10 @@ if N_ANNOTATIONS > 0:
             r"""
             echo "Starting annotation_step {wildcards.step} at: $(date)" >> {log}
             SnpSift {params.java_opts} annotate \
+              -noId -tabix \
               -info {params.info_field} \
               -name {params.annotation_prefix} \
-              {params.vcf_file} {input} \
+              {input.db_vcf} {input.vcf} \
             | bgzip -c > {output} 2>> {log}
             echo "Finished annotation_step {wildcards.step} at: $(date)" >> {log}
             """

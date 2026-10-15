@@ -88,6 +88,38 @@ class TestBuildSamplesDataframe:
         df = build_samples_dataframe([])
         assert len(df) == 0
 
+    def test_dotted_basenames_sanitized(self):
+        entries = [
+            {"path": "/a/APA01.filtered.vcf.gz", "basename": "APA01.filtered", "size_bytes": 100},
+            {
+                "path": "/a/APA02.filtered.norm.vcf.gz",
+                "basename": "APA02.filtered.norm",
+                "size_bytes": 100,
+            },
+            {
+                "path": "/a/Sample.1.filtered.vcf.gz",
+                "basename": "Sample.1.filtered",
+                "size_bytes": 100,
+            },
+            {"path": "/a/s1.v2.vcf.gz", "basename": "s1.v2", "size_bytes": 100},
+        ]
+        df = build_samples_dataframe(entries)
+        assert list(df["sample"]) == ["APA01", "APA02", "Sample_1", "s1_v2"]
+        assert list(df["vcf_basename"]) == [
+            "APA01.filtered",
+            "APA02.filtered.norm",
+            "Sample.1.filtered",
+            "s1.v2",
+        ]
+
+    def test_duplicate_sample_id_raises(self):
+        entries = [
+            {"path": "/a/APA01.vcf.gz", "basename": "APA01", "size_bytes": 100},
+            {"path": "/a/APA01.filtered.vcf.gz", "basename": "APA01.filtered", "size_bytes": 100},
+        ]
+        with pytest.raises(ValueError, match="Duplicate sample ID 'APA01'"):
+            build_samples_dataframe(entries)
+
 
 class TestWriteSamplesTsv:
     def test_dry_run(self):
@@ -402,25 +434,26 @@ class TestParseCanonicalContigs:
         for c in DEFAULT_CANONICAL_CONTIGS_CHR:
             lines.append(f"@SQ\tSN:{c}\tLN:1000\n")
         # Add non-canonical
-        lines.append("@SQ\tSN:chrM\tLN:16569\n")
         lines.append("@SQ\tSN:chr1_random\tLN:500\n")
         dict_file.write_text("".join(lines))
 
         contigs = parse_canonical_contigs(str(dict_file))
         assert contigs == DEFAULT_CANONICAL_CONTIGS_CHR
-        assert "chrM" not in contigs
+        assert "chrM" in contigs
+        assert "chr1_random" not in contigs
 
     def test_parse_dict_without_chr_prefix(self, tmp_path):
         dict_file = tmp_path / "genome.dict"
         lines = ["@HD\tVN:1.6\n"]
         for c in DEFAULT_CANONICAL_CONTIGS_NOCHR:
             lines.append(f"@SQ\tSN:{c}\tLN:1000\n")
-        lines.append("@SQ\tSN:MT\tLN:16569\n")
+        lines.append("@SQ\tSN:GL000192.1\tLN:547496\n")
         dict_file.write_text("".join(lines))
 
         contigs = parse_canonical_contigs(str(dict_file), build="GRCh37")
         assert contigs == DEFAULT_CANONICAL_CONTIGS_NOCHR
-        assert "MT" not in contigs
+        assert "MT" in contigs
+        assert "GL000192.1" not in contigs
 
     def test_default_contigs_grch38(self):
         contigs = parse_canonical_contigs(None, build="GRCh38")

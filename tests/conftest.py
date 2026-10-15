@@ -20,8 +20,8 @@ def config_dict():
     """Minimal valid configuration dictionary."""
     return {
         "ref": {
-            "genome": "/ref/GRCh37.p13.genome.fa",
-            "dict": "/ref/GRCh37.p13.genome.dict",
+            "genome": "/ref/GRCh38.p14.genome.fa",
+            "dict": "/ref/GRCh38.p14.genome.dict",
         },
         "paths": {
             "samples": "config/samples.tsv",
@@ -31,11 +31,11 @@ def config_dict():
             "annotation_subdir": "annotation",
         },
         "snpeff": {
-            "database": "GRCh37.p13",
+            "database": "GRCh38.p14",
             "extra_flags": "-lof -noInteraction",
         },
         "snpsift": {
-            "dbnsfp_db": "dbnsfp/dbNSFP4.9a_grch37.gz",
+            "dbnsfp_db": "dbnsfp/dbNSFP4.9a_grch38.gz",
             "dbnsfp_fields": "aaref,aaalt,SIFT_pred",
         },
         "scatter": {
@@ -73,7 +73,7 @@ def config_dict_chromosome():
         "scatter": {
             "mode": "chromosome",
             "count": 100,
-            "canonical_contigs": [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY"],
+            "canonical_contigs": [f"chr{i}" for i in range(1, 23)] + ["chrX", "chrY", "chrM"],
         },
         "extra_annotations": [],
     }

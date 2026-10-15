@@ -66,16 +66,24 @@ set-resources:
     mem_mb: 4000
     runtime: 60
     cpus_per_task: 2
+  scatter_intervals_by_ns:
+    mem_mb: 4000
+    runtime: 60
+    cpus_per_task: 1
+  split_intervals:
+    mem_mb: 4000
+    runtime: 60
+    cpus_per_task: 4
   scatter_vcf:
-    mem_mb: 8192
+    mem_mb: 16384
     runtime: 1440
     cpus_per_task: 2
   scatter_vcf_chromosome:
-    mem_mb: 4000
+    mem_mb: 16384
     runtime: 720
     cpus_per_task: 2
   concatenate_annotated_vcfs:
-    mem_mb: 8192
+    mem_mb: 16384
     runtime: 1440
     cpus_per_task: 4
   bcftools_stats:

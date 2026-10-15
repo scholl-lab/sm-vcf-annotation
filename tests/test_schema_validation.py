@@ -1,6 +1,7 @@
 """Tests for config and samples schema validation."""
 
 import copy
+from pathlib import Path
 
 import pytest
 import yaml
@@ -10,11 +11,12 @@ try:
 except ImportError:
     jsonschema = None
 
-SCHEMA_DIR = "workflow/schemas"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+SCHEMA_DIR = REPO_ROOT / "workflow" / "schemas"
 
 
 def _load_schema(name):
-    with open(f"{SCHEMA_DIR}/{name}") as f:
+    with open(SCHEMA_DIR / name) as f:
         return yaml.safe_load(f)
 
 
@@ -103,6 +105,11 @@ class TestConfigSchema:
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(broken, config_schema)
 
+    def test_snpeff_canon_list_valid(self, config_dict, config_schema):
+        valid = copy.deepcopy(config_dict)
+        valid["snpeff"]["canon_list"] = "/resources/mane_canon.txt"
+        jsonschema.validate(valid, config_schema)
+
 
 @pytest.mark.skipif(jsonschema is None, reason="jsonschema not installed")
 class TestSamplesSchema:
@@ -119,3 +126,24 @@ class TestSamplesSchema:
         broken = {"sample": "SampleA"}
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(broken, samples_schema)
+
+    def test_sample_with_dot_rejected(self, samples_schema):
+        broken = {"sample": "APA01.filtered", "vcf_basename": "APA01.filtered"}
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(broken, samples_schema)
+
+
+class TestProfiles:
+    def test_profiles_have_no_mem_mb_per_cpu_and_matching_resources(self):
+        profile_files = sorted((REPO_ROOT / "profiles").glob("*/config.v8+.yaml"))
+        assert profile_files
+        for pf in profile_files:
+            data = yaml.safe_load(pf.read_text())
+            default_res = data.get("default-resources", {})
+            assert "mem_mb_per_cpu" not in default_res, f"{pf} still sets mem_mb_per_cpu"
+            set_threads = data.get("set-threads", {})
+            set_resources = data.get("set-resources", {})
+            for rule, threads in set_threads.items():
+                assert rule in set_resources, f"{rule} missing from set-resources in {pf}"
+                assert set_resources[rule]["cpus_per_task"] == threads
+                assert set_resources[rule]["mem_mb"] >= 4000

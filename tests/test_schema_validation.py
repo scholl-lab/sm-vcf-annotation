@@ -120,6 +120,11 @@ class TestSamplesSchema:
         with pytest.raises(jsonschema.ValidationError):
             jsonschema.validate(broken, samples_schema)
 
+    def test_sample_with_dot_rejected(self, samples_schema):
+        broken = {"sample": "APA01.filtered", "vcf_basename": "APA01.filtered"}
+        with pytest.raises(jsonschema.ValidationError):
+            jsonschema.validate(broken, samples_schema)
+
 
 class TestProfiles:
     def test_profiles_have_no_mem_mb_per_cpu_and_matching_resources(self):

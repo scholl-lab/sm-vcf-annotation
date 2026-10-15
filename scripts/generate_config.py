@@ -691,14 +691,22 @@ def discover_sibling_config(
 # ---------------------------------------------------------------------------
 
 
+_SAMPLE_SUFFIX_RE = re.compile(
+    r"(\.(filtered|unfiltered|hard-filtered|norm|normalized|somatic|germline|mutect2|freebayes|raw|pass|annotated))+$",
+    re.IGNORECASE,
+)
+
+
 def build_samples_dataframe(vcf_entries: list[dict]) -> pd.DataFrame:
     """Create a samples DataFrame from discovered VCF entries."""
     rows = []
     for entry in vcf_entries:
+        basename = entry["basename"]
+        sample = _SAMPLE_SUFFIX_RE.sub("", basename).replace(".", "_")
         rows.append(
             {
-                "sample": entry["basename"],
-                "vcf_basename": entry["basename"],
+                "sample": sample,
+                "vcf_basename": basename,
             }
         )
     return pd.DataFrame(rows)

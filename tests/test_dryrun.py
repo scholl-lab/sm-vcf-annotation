@@ -123,6 +123,7 @@ def test_scatter_rules_and_wildcard_constraints():
     assert "-XL" not in scatter_smk
     assert "--ignore-non-starting-in-interval" in scatter_smk
     assert "-t ^" in scatter_smk
+    assert "chr-prefix mismatches VCF contig" in scatter_smk
     assert scatter_smk.count("rule concatenate_annotated_vcfs:") == 1
     assert "bcftools index -n" in scatter_smk
 

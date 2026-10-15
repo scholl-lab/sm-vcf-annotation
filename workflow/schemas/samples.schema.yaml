@@ -5,6 +5,7 @@ type: object
 properties:
   sample:
     type: string
+    pattern: "^[A-Za-z0-9_-]+$"
     description: Unique sample identifier.
   vcf_basename:
     type: string

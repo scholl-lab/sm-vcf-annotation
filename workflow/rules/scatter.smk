@@ -43,6 +43,16 @@ elif SCATTER_MODE == "chromosome":
         shell:
             r"""
             echo "Starting scatter_vcf_chromosome at: $(date)" >> {log}
+            vcf_contig=$(bcftools view -h {input.vcf_file} | grep -m1 '^##contig=<ID=' | sed 's/^##contig=<ID=\([^,>]*\).*/\1/' || true)
+            if [ -n "$vcf_contig" ] && [ "{wildcards.scatter_unit}" != "other" ]; then
+                case "{wildcards.scatter_unit}:$vcf_contig" in
+                    chr*:chr*) ;;
+                    chr*:*|*:chr*)
+                        echo "Error: scatter_unit {wildcards.scatter_unit} chr-prefix mismatches VCF contig $vcf_contig" >> {log}
+                        exit 1
+                        ;;
+                esac
+            fi
             bcftools view {params.region_arg} {input.vcf_file} \
                 -Oz --threads {threads} -o {output} 2>> {log}
             echo "Finished scatter_vcf_chromosome at: $(date)" >> {log}

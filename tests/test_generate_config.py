@@ -88,6 +88,30 @@ class TestBuildSamplesDataframe:
         df = build_samples_dataframe([])
         assert len(df) == 0
 
+    def test_dotted_basenames_sanitized(self):
+        entries = [
+            {"path": "/a/APA01.filtered.vcf.gz", "basename": "APA01.filtered", "size_bytes": 100},
+            {
+                "path": "/a/APA02.filtered.norm.vcf.gz",
+                "basename": "APA02.filtered.norm",
+                "size_bytes": 100,
+            },
+            {
+                "path": "/a/Sample.1.filtered.vcf.gz",
+                "basename": "Sample.1.filtered",
+                "size_bytes": 100,
+            },
+            {"path": "/a/s1.v2.vcf.gz", "basename": "s1.v2", "size_bytes": 100},
+        ]
+        df = build_samples_dataframe(entries)
+        assert list(df["sample"]) == ["APA01", "APA02", "Sample_1", "s1_v2"]
+        assert list(df["vcf_basename"]) == [
+            "APA01.filtered",
+            "APA02.filtered.norm",
+            "Sample.1.filtered",
+            "s1.v2",
+        ]
+
 
 class TestWriteSamplesTsv:
     def test_dry_run(self):

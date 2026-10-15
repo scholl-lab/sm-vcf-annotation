@@ -8,6 +8,7 @@ rule snpeff_annotation:
             if wc.scatter_unit == "all"
             else os.path.join(ANNOTATION_DIR, f"{wc.sample}.{wc.scatter_unit}.vcf.gz")
         ),
+        canon_list=SNPEFF_CANON_LIST if SNPEFF_CANON_LIST else [],
     output:
         ann_vcf=temp(
             os.path.join(
@@ -31,12 +32,13 @@ rule snpeff_annotation:
         java_opts=get_java_opts,
         db=SNPEFF_DB,
         extra_flags=SNPEFF_EXTRA_FLAGS,
+        canon_arg=lambda wc, input: f"-canonList {input.canon_list}" if input.canon_list else "",
     conda:
         "../envs/snpeff.yaml"
     shell:
         r"""
         echo "Starting snpeff_annotation at: $(date)" >> {log}
-        snpEff {params.java_opts} {params.db} {params.extra_flags} \
+        snpEff {params.java_opts} {params.db} {params.extra_flags} {params.canon_arg} \
             -csvStats {output.stats_csv} {input.vcf_file} \
         | bgzip -c > {output.ann_vcf} 2>> {log}
         echo "Finished snpeff_annotation at: $(date)" >> {log}

@@ -193,17 +193,17 @@ paths:
   output_folder: "results/annotation"
 
 snpeff:
-  database: "GRCh37.p13"
+  database: "GRCh38.p14"
   extra_flags: "-lof -noInteraction -noMotif -noNextProt -spliceRegionIntronMax 12"
 
 snpsift:
-  dbnsfp_db: "dbnsfp/dbNSFP4.9a_grch37.gz"
+  dbnsfp_db: "dbnsfp/dbNSFP4.9a_grch38.gz"
   dbnsfp_fields: "aaref,aaalt,aapos,SIFT_pred,..."  # auto-selected for dbNSFP v4 or v5
 
 scatter:
   mode: "none"                         # "none", "chromosome", or "interval"
   count: 100                           # intervals (for interval mode)
-  canonical_contigs: []                # contigs to include (chromosome + interval modes)
+  canonical_contigs: []                # contigs that get their own chromosome-mode shard; all others go to 'other'
 
 extra_annotations: []                  # optional step-wise SnpSift annotate
 ```

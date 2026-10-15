@@ -148,7 +148,7 @@ elif SCATTER_MODE == "interval":
               -R {params.ref} \
               -V {input.vcf_file} \
               -L {input.interval_file} \
-              --ignore-non-starting-in-interval \
+              --variant-output-filtering STARTS_IN \
               -O {output.vcf} 2>> {log}
             echo "Finished scatter_vcf at: $(date)" >> {log}
             """
@@ -179,6 +179,6 @@ if SCATTER_MODE in ("chromosome", "interval"):
             bcftools concat -Oz --threads {threads} {input.vcfs} \
                 -o {output} 2>> {log}
             bcftools index --threads {threads} -t {output} 2>> {log}
-            [ "$(bcftools view -H {input.raw_vcf} | wc -l)" -eq "$(bcftools index -n {output})" ]
+            [ "$(bcftools view -H {input.raw_vcf} | wc -l)" -eq "$(bcftools index -n {output})" ] || {{ echo "record count mismatch" >> {log}; exit 1; }}
             echo "Finished concatenate_annotated_vcfs at: $(date)" >> {log}
             """

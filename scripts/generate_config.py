@@ -586,7 +586,8 @@ def discover_extra_annotations(
 def parse_canonical_contigs(dict_path: str | None, build: str = "GRCh38") -> list[str]:
     """Parse canonical contigs from a .dict file.
 
-    Extracts @SQ SN: lines and filters to chr1-22 + X + Y (or 1-22 + X + Y).
+    Extracts @SQ SN: lines and filters to contigs that get their own
+    chromosome-mode shard; all others go to 'other'.
     Falls back to defaults if dict_path is None or unreadable.
     """
     if dict_path is None:
@@ -700,9 +701,13 @@ _SAMPLE_SUFFIX_RE = re.compile(
 def build_samples_dataframe(vcf_entries: list[dict]) -> pd.DataFrame:
     """Create a samples DataFrame from discovered VCF entries."""
     rows = []
+    seen: set[str] = set()
     for entry in vcf_entries:
         basename = entry["basename"]
         sample = _SAMPLE_SUFFIX_RE.sub("", basename).replace(".", "_")
+        if sample in seen:
+            raise ValueError(f"Duplicate sample ID '{sample}' derived from VCF '{basename}'")
+        seen.add(sample)
         rows.append(
             {
                 "sample": sample,

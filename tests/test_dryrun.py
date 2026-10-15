@@ -53,7 +53,7 @@ def _write_dryrun_fixture(tmp_path: Path, mode: str) -> Path:
 )
 @pytest.mark.parametrize("mode", ["none", "chromosome", "interval"])
 def test_dryrun_modes(tmp_path, mode):
-    """Verify the workflow DAG resolves across scatter modes."""
+    """Verify the workflow DAG resolves across scatter modes and renders expected commands."""
     cfg_path = _write_dryrun_fixture(tmp_path, mode)
     result = subprocess.run(
         [
@@ -63,6 +63,7 @@ def test_dryrun_modes(tmp_path, mode):
             "--configfile",
             str(cfg_path),
             "-n",
+            "-p",
             "--cores",
             "1",
         ],
@@ -73,6 +74,15 @@ def test_dryrun_modes(tmp_path, mode):
     assert result.returncode == 0, (
         f"Dry-run ({mode}) failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
     )
+    if mode == "interval":
+        assert "--variant-output-filtering STARTS_IN" in result.stdout
+        assert "--ignore-non-starting-in-interval" not in result.stdout
+        assert "bcftools index -n" in result.stdout
+        assert "record count mismatch" in result.stdout
+    elif mode == "chromosome":
+        assert "-t ^chr1,chrM" in result.stdout
+        assert "bcftools index -n" in result.stdout
+        assert "record count mismatch" in result.stdout
 
 
 @pytest.mark.dryrun
@@ -107,6 +117,52 @@ def test_dryrun_missing_tbi_fails(tmp_path):
         cwd=REPO_ROOT,
     )
     assert result.returncode != 0
+    combined = result.stdout + result.stderr
+    assert "MissingInputException" in combined
+    assert "clinvar.vcf.gz.tbi" in combined
+
+
+@pytest.mark.dryrun
+@pytest.mark.skipif(
+    shutil.which("snakemake") is None,
+    reason="snakemake not found on PATH",
+)
+def test_dryrun_extra_annotations_and_canon_list(tmp_path):
+    """Verify positive dry-run with extra_annotations (.tbi present) and snpeff.canon_list."""
+    cfg_path = _write_dryrun_fixture(tmp_path, "none")
+    cfg = yaml.safe_load(cfg_path.read_text())
+    extra_vcf = tmp_path / "clinvar.vcf.gz"
+    extra_vcf.write_bytes(b"")
+    (tmp_path / "clinvar.vcf.gz.tbi").write_bytes(b"")
+    canon_list = tmp_path / "mane_canon.txt"
+    canon_list.write_text("NM_000720.4\n")
+    cfg["snpeff"]["canon_list"] = str(canon_list)
+    cfg["extra_annotations"] = [
+        {"vcf_file": str(extra_vcf), "info_field": "CLNSIG", "annotation_prefix": "ClinVar_"}
+    ]
+    cfg_path.write_text(yaml.safe_dump(cfg))
+
+    result = subprocess.run(
+        [
+            "snakemake",
+            "-s",
+            "workflow/Snakefile",
+            "--configfile",
+            str(cfg_path),
+            "-n",
+            "-p",
+            "--cores",
+            "1",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert result.returncode == 0, (
+        f"Dry-run failed:\nstdout: {result.stdout}\nstderr: {result.stderr}"
+    )
+    assert "-noId -tabix" in result.stdout
+    assert f"-canonList {canon_list}" in result.stdout
 
 
 def test_scatter_rules_and_wildcard_constraints():
@@ -121,11 +177,13 @@ def test_scatter_rules_and_wildcard_constraints():
     scatter_smk = (Path(REPO_ROOT) / "workflow" / "rules" / "scatter.smk").read_text()
     assert "_get_noncanonical_contigs" not in scatter_smk
     assert "-XL" not in scatter_smk
-    assert "--ignore-non-starting-in-interval" in scatter_smk
+    assert "--variant-output-filtering STARTS_IN" in scatter_smk
+    assert "--ignore-non-starting-in-interval" not in scatter_smk
     assert "-t ^" in scatter_smk
     assert "chr-prefix mismatches VCF contig" in scatter_smk
     assert scatter_smk.count("rule concatenate_annotated_vcfs:") == 1
     assert "bcftools index -n" in scatter_smk
+    assert "record count mismatch" in scatter_smk
 
 
 def test_snpsift_rules_and_tracked_inputs():
@@ -137,7 +195,9 @@ def test_snpsift_rules_and_tracked_inputs():
     assert "-db {input.dbnsfp_db}" in snpsift_smk
     assert 'db_vcf=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["vcf_file"],' in snpsift_smk
     assert (
-        "db_tbi=lambda wc: f\"{EXTRA_ANNOTATIONS[int(wc.step) - 1]['vcf_file']}.tbi\","
+        "db_tbi=lambda wc: f\"{EXTRA_ANNOTATIONS[int(wc.step)-1]['vcf_file']}.tbi\","
         in snpsift_smk
     )
     assert "{input.db_vcf} {input.vcf}" in snpsift_smk
+    snpeff_smk = (Path(REPO_ROOT) / "workflow" / "rules" / "snpeff.smk").read_text()
+    assert "-canonList {input.canon_list}" in snpeff_smk

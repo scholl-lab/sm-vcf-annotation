@@ -40,11 +40,15 @@ properties:
     properties:
       database:
         type: string
-        description: "snpEff database name (e.g., GRCh37.p13)."
+        description: "snpEff database name (e.g., GRCh38.p14)."
       extra_flags:
         type: string
         default: ""
         description: Additional flags passed to snpEff.
+      canon_list:
+        type: string
+        default: ""
+        description: Optional path to a canonical transcript list passed to snpEff via -canonList.
     required: [database]
 
   snpsift:
@@ -74,7 +78,7 @@ properties:
         type: array
         items:
           type: string
-        description: List of canonical contigs to include when scattering (used by both chromosome and interval modes).
+        description: Contigs that get their own chromosome-mode shard; all others go to 'other'.
     required: [mode]
 
   extra_annotations:

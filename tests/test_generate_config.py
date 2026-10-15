@@ -112,6 +112,14 @@ class TestBuildSamplesDataframe:
             "s1.v2",
         ]
 
+    def test_duplicate_sample_id_raises(self):
+        entries = [
+            {"path": "/a/APA01.vcf.gz", "basename": "APA01", "size_bytes": 100},
+            {"path": "/a/APA01.filtered.vcf.gz", "basename": "APA01.filtered", "size_bytes": 100},
+        ]
+        with pytest.raises(ValueError, match="Duplicate sample ID 'APA01'"):
+            build_samples_dataframe(entries)
+
 
 class TestWriteSamplesTsv:
     def test_dry_run(self):

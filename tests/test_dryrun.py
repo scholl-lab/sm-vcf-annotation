@@ -75,6 +75,40 @@ def test_dryrun_modes(tmp_path, mode):
     )
 
 
+@pytest.mark.dryrun
+@pytest.mark.skipif(
+    shutil.which("snakemake") is None,
+    reason="snakemake not found on PATH",
+)
+def test_dryrun_missing_tbi_fails(tmp_path):
+    """Verify DAG construction fails when a configured extra annotation .vcf.gz.tbi is missing."""
+    cfg_path = _write_dryrun_fixture(tmp_path, "none")
+    cfg = yaml.safe_load(cfg_path.read_text())
+    extra_vcf = tmp_path / "clinvar.vcf.gz"
+    extra_vcf.write_bytes(b"")
+    cfg["extra_annotations"] = [
+        {"vcf_file": str(extra_vcf), "info_field": "CLNSIG", "annotation_prefix": "ClinVar_"}
+    ]
+    cfg_path.write_text(yaml.safe_dump(cfg))
+
+    result = subprocess.run(
+        [
+            "snakemake",
+            "-s",
+            "workflow/Snakefile",
+            "--configfile",
+            str(cfg_path),
+            "-n",
+            "--cores",
+            "1",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
+    )
+    assert result.returncode != 0
+
+
 def test_scatter_rules_and_wildcard_constraints():
     """Verify scatter_unit constraints and scatter rule definitions without snakemake binary."""
     snakefile = (Path(REPO_ROOT) / "workflow" / "Snakefile").read_text()
@@ -91,3 +125,18 @@ def test_scatter_rules_and_wildcard_constraints():
     assert "-t ^" in scatter_smk
     assert scatter_smk.count("rule concatenate_annotated_vcfs:") == 1
     assert "bcftools index -n" in scatter_smk
+
+
+def test_snpsift_rules_and_tracked_inputs():
+    """Verify annotation_step uses -noId -tabix and tracks db_vcf/db_tbi and dbnsfp inputs."""
+    snpsift_smk = (Path(REPO_ROOT) / "workflow" / "rules" / "snpsift.smk").read_text()
+    assert "-noId -tabix" in snpsift_smk
+    assert "dbnsfp_db=SNPSIFT_DBNSFP_DB," in snpsift_smk
+    assert 'dbnsfp_tbi=f"{SNPSIFT_DBNSFP_DB}.tbi",' in snpsift_smk
+    assert "-db {input.dbnsfp_db}" in snpsift_smk
+    assert 'db_vcf=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["vcf_file"],' in snpsift_smk
+    assert (
+        "db_tbi=lambda wc: f\"{EXTRA_ANNOTATIONS[int(wc.step) - 1]['vcf_file']}.tbi\","
+        in snpsift_smk
+    )
+    assert "{input.db_vcf} {input.vcf}" in snpsift_smk

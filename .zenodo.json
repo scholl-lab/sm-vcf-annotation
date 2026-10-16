@@ -2,8 +2,8 @@
   "title": "sm-vcf-annotation",
   "description": "Snakemake workflow for annotating VCF files with snpEff, SnpSift, and dbNSFP. It supports local execution and SLURM clusters, scatter/gather processing, additional VCF annotations, and quality-control reporting.",
   "upload_type": "software",
-  "version": "1.3.0",
-  "publication_date": "2026-10-15",
+  "version": "1.4.0",
+  "publication_date": "2026-10-16",
   "license": "mit",
   "access_right": "open",
   "creators": [
@@ -27,7 +27,7 @@
       "scheme": "url"
     },
     {
-      "identifier": "https://github.com/scholl-lab/sm-vcf-annotation/releases/tag/v1.3.0",
+      "identifier": "https://github.com/scholl-lab/sm-vcf-annotation/releases/tag/v1.4.0",
       "relation": "isIdenticalTo",
       "scheme": "url"
     }

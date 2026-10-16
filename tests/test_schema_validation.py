@@ -1,6 +1,7 @@
 """Tests for config and samples schema validation."""
 
 import copy
+import re
 from pathlib import Path
 
 import pytest
@@ -9,7 +10,7 @@ import yaml
 try:
     import jsonschema
 except ImportError:
-    jsonschema = None
+    jsonschema = None  # type: ignore[assignment]
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SCHEMA_DIR = REPO_ROOT / "workflow" / "schemas"
@@ -165,3 +166,29 @@ class TestProfiles:
                     assert isinstance(rt, str) and not rt.isdigit(), (
                         f"{pf} set-resources.{rule}.runtime is a bare integer: {rt!r}"
                     )
+
+    def test_conda_envs_are_pinned_and_metadata_consistent(self):
+        env_files = sorted((REPO_ROOT / "workflow" / "envs").glob("*.yaml"))
+        assert env_files
+        for ef in env_files:
+            data = yaml.safe_load(ef.read_text())
+            deps = data.get("dependencies", [])
+            assert deps, f"{ef} has no dependencies"
+            for dep in deps:
+                assert re.match(r"^[A-Za-z0-9_.-]+=[A-Za-z0-9_.-]+$", str(dep)), (
+                    f"Unpinned dependency {dep!r} in {ef}"
+                )
+            if ef.name == "snpeff.yaml":
+                assert all(not str(d).startswith("numpy") for d in deps)
+
+        pyproject_text = (REPO_ROOT / "pyproject.toml").read_text()
+        m = re.search(r'^version\s*=\s*"([^"]+)"', pyproject_text, re.MULTILINE)
+        assert m is not None, "pyproject.toml is missing [project] version"
+        citation = yaml.safe_load((REPO_ROOT / "CITATION.cff").read_text())
+        assert m.group(1) == str(citation["version"])
+
+        ci_workflow = REPO_ROOT / ".github" / "workflows" / "ci.yml"
+        assert ci_workflow.is_file()
+        ci_data = yaml.safe_load(ci_workflow.read_text())
+        steps = ci_data["jobs"]["ci"]["steps"]
+        assert any("make lint test-unit" in s.get("run", "") for s in steps)

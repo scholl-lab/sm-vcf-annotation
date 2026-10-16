@@ -16,7 +16,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 # --- File sets ---------------------------------------------------------------
-PY_FILES   := workflow/rules/helpers.py scripts/generate_config.py
+PY_FILES   := workflow/rules/helpers.py scripts/generate_config.py workflow/scripts/*.py tests
 SMK_FILES  := workflow/rules/*.smk workflow/Snakefile
 SH_FILES   := scripts/run_snakemake.sh
 
@@ -56,7 +56,7 @@ fix-py:  ## Auto-fix Python lint issues + format
 
 .PHONY: typecheck
 typecheck:  ## Run mypy type checking
-	mypy $(PY_FILES)
+	mypy $(filter-out workflow/scripts/%,$(PY_FILES))
 
 # =============================================================================
 # Snakemake  (snakefmt)

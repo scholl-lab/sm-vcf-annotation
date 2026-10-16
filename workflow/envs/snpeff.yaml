@@ -6,6 +6,5 @@ dependencies:
   - snpsift=5.2
   - bcftools=1.21
   - htslib=1.21
-  - python
-  - numpy
-  - pandas
+  - python=3.12
+  - pandas=2.2

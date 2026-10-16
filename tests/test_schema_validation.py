@@ -147,3 +147,21 @@ class TestProfiles:
                 assert rule in set_resources, f"{rule} missing from set-resources in {pf}"
                 assert set_resources[rule]["cpus_per_task"] == threads
                 assert set_resources[rule]["mem_mb"] >= 4000
+
+    def test_profile_runtime_values_have_explicit_units(self):
+        profile_files = sorted((REPO_ROOT / "profiles").glob("*/config*.yaml"))
+        assert profile_files
+        for pf in profile_files:
+            data = yaml.safe_load(pf.read_text())
+            default_res = data.get("default-resources", {})
+            if "runtime" in default_res:
+                rt = default_res["runtime"]
+                assert isinstance(rt, str) and not rt.isdigit(), (
+                    f"{pf} default-resources runtime is a bare integer: {rt!r}"
+                )
+            for rule, res in data.get("set-resources", {}).items():
+                if "runtime" in res:
+                    rt = res["runtime"]
+                    assert isinstance(rt, str) and not rt.isdigit(), (
+                        f"{pf} set-resources.{rule}.runtime is a bare integer: {rt!r}"
+                    )

@@ -191,4 +191,7 @@ class TestProfiles:
         assert ci_workflow.is_file()
         ci_data = yaml.safe_load(ci_workflow.read_text())
         steps = ci_data["jobs"]["ci"]["steps"]
-        assert any("make lint test-unit" in s.get("run", "") for s in steps)
+        run_cmds = "\n".join(s.get("run", "") for s in steps)
+        assert "make lint test-unit" in run_cmds
+        for pkg in ("types-PyYAML", "types-jsonschema", "pandas==2.2.*", "numpy<2.5"):
+            assert pkg in run_cmds, f"CI install missing {pkg!r}"

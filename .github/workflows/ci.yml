@@ -18,7 +18,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install ruff mypy snakefmt==0.10.3 shellcheck-py pytest pandas pyyaml jsonschema
+        run: pip install ruff mypy snakefmt==0.10.3 shellcheck-py pytest "pandas==2.2.*" "numpy<2.5" pyyaml jsonschema types-PyYAML types-jsonschema
 
       - name: Lint and run unit tests
         run: make lint test-unit

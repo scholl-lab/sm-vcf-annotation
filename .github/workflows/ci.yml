@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint & unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install ruff mypy snakefmt==0.10.3 shellcheck-py pytest "pandas==2.2.*" "numpy<2.5" pyyaml jsonschema types-PyYAML types-jsonschema
+
+      - name: Lint and run unit tests
+        run: make lint test-unit

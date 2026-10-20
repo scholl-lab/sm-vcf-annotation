@@ -61,7 +61,7 @@ The pipeline requires:
 
 | Data | Source | Maps to `config.yaml` |
 |------|--------|-----------------------|
-| **snpEff database** (e.g., GRCh37.p13) | bundled with snpEff | `snpeff.database` |
+| **snpEff database** (e.g., GRCh37.p13) | downloaded once into the snpEff conda env by rule `snpeff_download_db` | `snpeff.database` |
 | **dbNSFP database** (v4.x or v5.x) | [dbNSFP downloads](https://sites.google.com/site/jpaborern/dbNSFP) | `snpsift.dbnsfp_db` |
 | **Reference genome** (for scatter mode) | NCBI/UCSC | `ref.genome`, `ref.dict` |
 

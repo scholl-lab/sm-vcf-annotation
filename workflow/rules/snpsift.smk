@@ -25,8 +25,10 @@ rule snpsift_variant_type:
     shell:
         r"""
         echo "Starting snpsift_variant_type at: $(date)" >> {log}
+        if [ -z "$(bcftools view -H {input.ann_vcf} | head -n1)" ]; then cp {input.ann_vcf} {output.ann_vartype_vcf}; echo "empty shard: copied input (SnpSift drops the header on zero-record VCFs)" >> {log}; else
         SnpSift {params.java_opts} varType {input.ann_vcf} \
         | bgzip -c > {output.ann_vartype_vcf} 2>> {log}
+        fi
         echo "Finished snpsift_variant_type at: $(date)" >> {log}
         """
 
@@ -64,11 +66,13 @@ rule snpsift_annotation_dbnsfp:
     shell:
         r"""
         echo "Starting snpsift_annotation_dbnsfp at: $(date)" >> {log}
+        if [ -z "$(bcftools view -H {input.ann_vartype_vcf} | head -n1)" ]; then cp {input.ann_vartype_vcf} {output.ann_dbnsfp_vcf}; echo "empty shard: copied input (SnpSift drops the header on zero-record VCFs)" >> {log}; else
         SnpSift {params.java_opts} dbnsfp \
             -f {params.dbnsfp_fields} \
             -db {input.dbnsfp_db} \
             {input.ann_vartype_vcf} \
         | bgzip -c > {output.ann_dbnsfp_vcf} 2>> {log}
+        fi
         echo "Finished snpsift_annotation_dbnsfp at: $(date)" >> {log}
         """
 
@@ -109,12 +113,14 @@ if N_ANNOTATIONS > 0:
         shell:
             r"""
             echo "Starting annotation_step {wildcards.step} at: $(date)" >> {log}
+            if [ -z "$(bcftools view -H {input.vcf} | head -n1)" ]; then cp {input.vcf} {output}; echo "empty shard: copied input (SnpSift drops the header on zero-record VCFs)" >> {log}; else
             SnpSift {params.java_opts} annotate \
               -noId -tabix \
               -info {params.info_field} \
               -name {params.annotation_prefix} \
               {input.db_vcf} {input.vcf} \
             | bgzip -c > {output} 2>> {log}
+            fi
             echo "Finished annotation_step {wildcards.step} at: $(date)" >> {log}
             """
 

@@ -79,6 +79,10 @@ def test_dryrun_modes(tmp_path, mode):
         assert "--ignore-non-starting-in-interval" not in result.stdout
         assert "bcftools index -n" in result.stdout
         assert "record count mismatch" in result.stdout
+        # #39: empty shards bypass SnpSift, which drops the header on zero-record VCFs
+        for rule in ("snpsift_variant_type", "snpsift_annotation_dbnsfp"):
+            assert f"Starting {rule}" in result.stdout
+        assert result.stdout.count("empty shard: copied input") >= 2
     elif mode == "chromosome":
         assert "-t ^chr1,chrM" in result.stdout
         assert "bcftools index -n" in result.stdout

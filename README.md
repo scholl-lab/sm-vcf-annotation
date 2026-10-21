@@ -466,8 +466,8 @@ sm-vcf-annotation/
 
 If you use sm-vcf-annotation in your research, cite the software using
 [`CITATION.cff`](CITATION.cff) or GitHub's **Cite this repository** button. The
-metadata describe [v1.5.0](https://github.com/scholl-lab/sm-vcf-annotation/releases/tag/v1.5.0),
-released on 2026-10-16.
+metadata describe [v1.5.2](https://github.com/scholl-lab/sm-vcf-annotation/releases/tag/v1.5.2),
+released on 2026-10-21.
 
 A Zenodo DOI is pending. To archive the next release, a maintainer must enable
 the Zenodo GitHub integration, update the version and release date in both

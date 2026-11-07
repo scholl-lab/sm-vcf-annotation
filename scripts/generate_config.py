@@ -123,6 +123,7 @@ KNOWN_ANNOTATIONS: dict[str, dict[str, str]] = {
         "glob": "**/Cosmic*vcf.gz",
         "info_field": "GENOME_SCREEN_SAMPLE_COUNT",
         "annotation_prefix": "COSMIC_",
+        "collapse": "max",  # COSMIC has one record per transcript; keep the highest sample count
         "description": "COSMIC genome screen counts",
     },
 }
@@ -574,6 +575,7 @@ def discover_extra_annotations(
                     "vcf_file": vcf_path,
                     "info_field": info["info_field"],
                     "annotation_prefix": info["annotation_prefix"],
+                    **({"collapse": info["collapse"]} if "collapse" in info else {}),
                 }
                 search_log.append(f"Found {name}: {vcf_path}")
 
@@ -806,6 +808,8 @@ def generate_config_template(
             ann_lines.append(f'  - vcf_file: "{ann["vcf_file"]}"')
             ann_lines.append(f'    info_field: "{ann["info_field"]}"')
             ann_lines.append(f'    annotation_prefix: "{ann["annotation_prefix"]}"')
+            if ann.get("collapse"):
+                ann_lines.append(f'    collapse: "{ann["collapse"]}"')
         extra_ann_yaml = "\n" + "\n".join(ann_lines)
     else:
         extra_ann_yaml = " []"

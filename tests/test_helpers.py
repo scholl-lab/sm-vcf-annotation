@@ -2,6 +2,7 @@
 
 import os
 import sys
+from typing import ClassVar
 
 # Add workflow/rules to the path so helpers.py can be imported directly
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "workflow", "rules"))
@@ -253,3 +254,60 @@ class TestParseSnpsiftTstv:
         result = parse_snpsift_tstv(output)
         assert "Sample" not in result
         assert result["Transitions"] == "100"
+
+
+class TestNormalizeAnnotation:
+    HDR: ClassVar[list[str]] = [
+        "##fileformat=VCFv4.2\n",
+        '##INFO=<ID=COSMIC_GENOME_SCREEN_SAMPLE_COUNT,Number=1,Type=Integer,Description="n">\n',
+        '##INFO=<ID=hgmd_CLASS,Number=1,Type=String,Description="c">\n',
+        '##INFO=<ID=splice_dbscSNV_ada_score,Number=A,Type=Float,Description="ada">\n',
+        '##INFO=<ID=DP,Number=1,Type=Integer,Description="depth">\n',
+        "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n",
+    ]
+    REC = "chr1\t10\t.\tA\tC\t.\tPASS\tDP=7;COSMIC_GENOME_SCREEN_SAMPLE_COUNT=1,5,2;hgmd_CLASS=DM,DM?\n"
+    IDS: ClassVar[list[str]] = [
+        "COSMIC_GENOME_SCREEN_SAMPLE_COUNT",
+        "hgmd_CLASS",
+        "splice_dbscSNV_ada_score",
+    ]
+
+    def run(self, collapse):
+        from helpers import normalize_annotation_vcf
+
+        return "".join(normalize_annotation_vcf([*self.HDR, self.REC], self.IDS, collapse))
+
+    def test_collapse_max_and_header(self):
+        out = self.run({"COSMIC_GENOME_SCREEN_SAMPLE_COUNT": "max"})
+        assert "ID=COSMIC_GENOME_SCREEN_SAMPLE_COUNT,Number=1," in out
+        assert "COSMIC_GENOME_SCREEN_SAMPLE_COUNT=5;" in out  # max of 1,5,2 (numeric)
+        assert "ID=hgmd_CLASS,Number=.," in out  # new, not collapsed -> Number=.
+        assert "hgmd_CLASS=DM,DM?" in out  # values untouched
+        assert "ID=splice_dbscSNV_ada_score,Number=A," in out  # per-allele kept
+        assert "ID=DP,Number=1," in out and "DP=7;" in out  # not added by the step
+
+    def test_no_collapse_only_header(self):
+        out = self.run({})
+        assert "ID=COSMIC_GENOME_SCREEN_SAMPLE_COUNT,Number=.," in out
+        assert "COSMIC_GENOME_SCREEN_SAMPLE_COUNT=1,5,2;" in out
+
+    def test_numeric_not_lexical_and_missing(self):
+        from helpers import collapse_info
+
+        assert collapse_info("X=9,10", {"X": "max"}) == "X=10"
+        assert collapse_info("X=.,3", {"X": "first"}) == "X=3"
+        assert collapse_info("X=4;FLAG", {"X": "max"}) == "X=4;FLAG"
+        assert collapse_info(".", {"X": "max"}) == "."
+
+    def test_idempotent(self):
+        from helpers import normalize_annotation_vcf
+
+        once = self.run({"COSMIC_GENOME_SCREEN_SAMPLE_COUNT": "max"})
+        again = "".join(
+            normalize_annotation_vcf(
+                once.splitlines(keepends=True),
+                self.IDS,
+                {"COSMIC_GENOME_SCREEN_SAMPLE_COUNT": "max"},
+            )
+        )
+        assert again == once

@@ -4,6 +4,7 @@ All functions are free of Snakemake imports so they can be unit-tested.
 """
 
 import os
+import re
 from collections.abc import Iterable
 
 import pandas as pd
@@ -143,3 +144,54 @@ def annotation_step_vcf(annotation_dir: str, sample: str, step: int, scatter_uni
     if step == 0:
         return os.path.join(annotation_dir, f"{sample}.{scatter_unit}.ann.dbnsfp.vcf.gz")
     return os.path.join(annotation_dir, f"{sample}.{scatter_unit}.ann.step{step}.vcf.gz")
+
+
+AGGREGATORS = {
+    "max": lambda v: max(v, key=float),
+    "min": lambda v: min(v, key=float),
+    "first": lambda v: v[0],
+}
+
+
+def normalize_info_header(line: str, new_ids: set[str], collapse: dict[str, str]) -> str:
+    """Fix the Number of an INFO header line written by SnpSift annotate.
+
+    SnpSift copies the database's Number (often 1) but joins the values of every matching
+    database record ("1,1,1"). Collapsed fields become Number=1; other new fields Number=.,
+    unless they are per-allele (A, R) or per-genotype (G).
+    """
+    if not line.startswith("##INFO=<ID="):
+        return line
+    fid = line[len("##INFO=<ID=") :].split(",", 1)[0]
+    if fid in collapse:
+        return re.sub(r",Number=[^,]+,", ",Number=1,", line, count=1)
+    if fid in new_ids:
+        return re.sub(r",Number=(?![ARG.],)[^,]+,", ",Number=.,", line, count=1)
+    return line
+
+
+def collapse_info(info: str, collapse: dict[str, str]) -> str:
+    """Collapse joined multi-record values ("1,1,3") of the given INFO keys to one value."""
+    if not collapse or info == ".":
+        return info
+    out = []
+    for kv in info.split(";"):
+        key, sep, val = kv.partition("=")
+        if sep and key in collapse and "," in val:
+            vals = [x for x in val.split(",") if x not in ("", ".")]
+            val = AGGREGATORS[collapse[key]](vals) if vals else "."
+        out.append(f"{key}{sep}{val}")
+    return ";".join(out)
+
+
+def normalize_annotation_vcf(lines, new_ids: list[str], collapse: dict[str, str]):
+    """Stream a VCF (text lines) and apply normalize_info_header / collapse_info."""
+    ids = set(new_ids)
+    for line in lines:
+        if line.startswith("#"):
+            yield normalize_info_header(line, ids, collapse)
+            continue
+        f = line.rstrip("\n").split("\t")
+        if len(f) > 7:
+            f[7] = collapse_info(f[7], collapse)
+        yield "\t".join(f) + "\n"

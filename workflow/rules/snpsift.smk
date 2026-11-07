@@ -108,6 +108,16 @@ if N_ANNOTATIONS > 0:
             java_opts=get_java_opts,
             info_field=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["info_field"],
             annotation_prefix=lambda wc: EXTRA_ANNOTATIONS[int(wc.step) - 1]["annotation_prefix"],
+            new_ids=lambda wc: ",".join(
+                EXTRA_ANNOTATIONS[int(wc.step) - 1]["annotation_prefix"] + f
+                for f in EXTRA_ANNOTATIONS[int(wc.step) - 1]["info_field"].split(",")
+            ),
+            collapse=lambda wc: ",".join(
+                EXTRA_ANNOTATIONS[int(wc.step) - 1]["annotation_prefix"] + f + ":" + EXTRA_ANNOTATIONS[int(wc.step) - 1]["collapse"]
+                for f in EXTRA_ANNOTATIONS[int(wc.step) - 1]["info_field"].split(",")
+                if EXTRA_ANNOTATIONS[int(wc.step) - 1].get("collapse")
+            ),
+            normalize=os.path.join(workflow.basedir, "scripts", "normalize_annotation.py"),
         conda:
             "../envs/snpeff.yaml"
         shell:
@@ -119,6 +129,7 @@ if N_ANNOTATIONS > 0:
               -info {params.info_field} \
               -name {params.annotation_prefix} \
               {input.db_vcf} {input.vcf} \
+            | python {params.normalize} "{params.new_ids}" "{params.collapse}" \
             | bgzip -c > {output} 2>> {log}
             fi
             echo "Finished annotation_step {wildcards.step} at: $(date)" >> {log}

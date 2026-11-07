@@ -92,6 +92,13 @@ properties:
           type: string
         annotation_prefix:
           type: string
+        collapse:
+          type: string
+          enum: [max, min, first]
+          description: >-
+            Collapse the values SnpSift joins when several database records match one variant
+            ("1,1,3") to one value; the field is then declared Number=1. Without it, new fields
+            are declared Number=. (unless A/R/G).
       required: [vcf_file, info_field, annotation_prefix]
     description: Optional list of extra VCF annotations to apply step-wise.
 
